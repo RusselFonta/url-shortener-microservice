@@ -1,0 +1,28 @@
+{
+  "name": "url_shortener_microservice",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "lint": "eslint .",
+    "format:check": "prettier --check \"src/**/*.js\"",
+    "format": "prettier --write \"src/**/*.js\"",
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "Russel Fonta Fadil",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "nanoid": "^6.0.2",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

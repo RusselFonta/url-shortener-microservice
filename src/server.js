@@ -3,8 +3,7 @@ import app from './app.js'
 import pkg from 'pg'
 
 const {Pool} = pkg
-const PORT = process.env.PORT || 3000;
-console.log('DEBUG' ,process.env.DATABASE_URL)
+const PORT = process.env.PORT;
 
 const pool = new Pool({
     connectionString:process.env.DATABASE_URL,
@@ -21,5 +20,5 @@ pool.connect((err,client,release) => {
 
 // starting the server
 app.listen(PORT, () =>{
-    console.log(`the server is running on port http://localhost:${PORT}/`)
+    console.log(`the server is running on port http://localhost:${PORT}`)
 })

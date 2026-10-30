@@ -11,18 +11,14 @@ const pool = new Pool({
 
 // Testing the connection to the postgreSQL database
 // reserving a place for my server
-pool.connect((err, release) => {
-  if (err) {
-    console.error(
-      "An error occurred during the connection process with the database",
-      err.message,
-    );
-  } else {
-    console.log("A connection was establish with the database");
-    // use release to secure , adapt, and send back the connection pool at the end of a request when the server is not used for reutilization
-    release();
-  }
-});
+pool.query('SELECT NOW()')
+.then(() => {
+    console.log('A connection was establish with the database')
+})
+
+.catch((err) => {
+    console.error('An error occurred during the connection process with the database', err.message)
+})
 
 // starting the server
 app.listen(PORT, () => {

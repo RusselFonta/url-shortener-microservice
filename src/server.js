@@ -10,9 +10,9 @@ const pool = new Pool({
 });
 
 // Testing the connection to the postgreSQL database
-pool.connect((err, client, release) => {
+pool.connect((err,release) => {
   if (err) {
-    console.log(
+    console.error(
       "An error occurred during the connection process with the database",
       err.message,
     );

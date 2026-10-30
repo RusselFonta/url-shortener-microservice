@@ -25,7 +25,7 @@ export default [
           varsIgnorePattern: '^_',
         },
       ],
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': ['warn', { allow: ['warn', 'error', 'log'] }],
     },
   },
   {

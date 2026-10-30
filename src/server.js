@@ -20,7 +20,7 @@ pool.connect((err, release) => {
   } else {
     console.log("A connection was establish with the database");
     // use release to secure , adapt, and send back the connection pool at the end of a request when the server is not used for reutilization
-    release()
+    release();
   }
 });
 

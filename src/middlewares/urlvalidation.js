@@ -1,8 +1,7 @@
-import { success } from "zod";
-import { startsWith, z } from "zod/mini";
+import { z } from "zod";
 
 const url_shortener_schema = z.object({
-  // verify the url enter is a string and in the appropriate url standard (https;// anf http://)
+  // verify the url enter is a string and in the appropriate url standard (https;// and http:// )
   original_url: z
     .string({ message: "A original url is required" })
     .url({
@@ -17,7 +16,7 @@ const url_shortener_schema = z.object({
   short_url: z.string().regex(/^[A-Za-z0-9_-]{3,16}$/, {
     message:
       "the url generated must have a length of 3 to 16 and respect the provided regex",
-  }),
+  }).optional(),
 });
 
 //use middleware factory to responsibility seperation so that the all request are valide before reaching the controller

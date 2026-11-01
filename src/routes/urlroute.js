@@ -1,9 +1,15 @@
-import express from 'express'
-import { validation_schema } from '../middlewares/urlvalidation'
-import { checkController } from '../controllers/urlcontroller'
+import express from 'express';
+import { validation_schema } from '../middlewares/urlvalidation.js';
 
+const router = express.Router();
 
-export const router = express.Router()
+// POST endpoint for creating/shortening URLs (Validation + Controller placeholder)
+router.post('/shorten', validation_schema, (req, res) => {
+  res.status(201).json({
+    success: true,
+    message: 'Validation passed successfully!',
+    data: req.body,
+  });
+});
 
-// Initiation of a post endpoint
-router.post('/shorten', validation_schema, checkController)
+export default router;

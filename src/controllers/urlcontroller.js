@@ -30,7 +30,7 @@ export const url_generator = {
         const protocol_host = `${req.protocol}://${req.get('host')}`;
         const generated_url = `${protocol_host}/${record_url.short_code}`
 
-        res.status(200).json({
+            return res.status(200).json({
             status: 'success',
             message: 'the short url was generated succefully',
             data: {
@@ -44,6 +44,12 @@ export const url_generator = {
         })
 
     }catch(err){
+        return res.status(500).json({
+            status: 'failed',
+            success: false,
+            message: 'An error occured in your in backend',
+            error: err.message
+        })
 
     }
     }

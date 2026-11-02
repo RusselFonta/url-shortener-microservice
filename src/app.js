@@ -1,12 +1,13 @@
-// importing the express framework into my file es module
 import express from "express";
+import urlroute from "./routes/urlroute.js"; 
 
 const app = express();
 
-// asking express to build a global middleware for all incoming request
-app.use(express());
+app.use(express.json());
 
-// setting up a rout waiting for incoming http get request
+app.use("/", urlroute);
+
+// Setting up a route waiting for incoming http get request
 app.get("/health", (req, res) => {
   res
     .status(200)

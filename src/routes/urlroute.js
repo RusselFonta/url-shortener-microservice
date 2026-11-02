@@ -3,7 +3,7 @@ import { validation_schema } from '../middlewares/urlvalidation.js';
 
 const router = express.Router();
 
-// POST endpoint for creating/shortening URLs (Validation + Controller placeholder)
+// initiating a post request to endpoint
 router.post('/shorten', validation_schema, (req, res) => {
   res.status(201).json({
     success: true,

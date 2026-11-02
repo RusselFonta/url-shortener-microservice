@@ -1,5 +1,6 @@
 import express from 'express';
 import { validation_schema } from '../middlewares/urlvalidation.js';
+import { url_redirection } from '../controllers/urlcontroller.js';
 
 const router = express.Router();
 
@@ -11,5 +12,7 @@ router.post('/shorten', validation_schema, (req, res) => {
     data: req.body,
   });
 });
+
+router.get('/:short_code', url_redirection )
 
 export default router;

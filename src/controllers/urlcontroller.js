@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { pool } from '../server';
+import { success } from 'zod';
 
 export const checkController = {
     getHealth: (_req, res) => {
@@ -63,5 +64,30 @@ export const url_generator = {
         })
 
     }
+    }
+}
+
+
+//PART 2: atomic redirection and telemetry controller
+url_redirection: async (req, res) => {
+    try {
+        const {short_code} = req.params
+
+        // searching for the origianl url in the database 
+        const select= 'SELECT orginal_url, is_active, created_at FROM links WHERE short_code = $2'
+
+        const value = [short_code]
+        const output = await pool.connect(select, value)
+
+        if(!output.rows.lenght === 0){
+            return res.status(404).json({
+                status: 'failed',
+                success: false,
+                message: 'the short url was not found in the database'
+            })
+        }
+
+    }catch(err){
+
     }
 }

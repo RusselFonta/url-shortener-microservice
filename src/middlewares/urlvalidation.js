@@ -3,7 +3,7 @@ import { z } from "zod";
 const url_shortener_schema = z.object({
   // verify the url enter is a string and in the appropriate url standard (https;// and http:// )
   original_url: z
-    .string({ message: "A original url is required" })
+    .string({ message: "the original url is required" })
     .url({
       message:
         "the url provided is not in the correct format ( http:// || https:// )",

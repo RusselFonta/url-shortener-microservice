@@ -69,9 +69,6 @@ export const url_generator = {
         try {
             const { short_code } = req.params;
 
-            // Start atomic transaction
-            await client.query('BEGIN');
-
             const selectQuery = `
                 SELECT orginal_url, is_active, expired_at 
                 FROM links 
@@ -80,8 +77,6 @@ export const url_generator = {
             const output = await client.query(selectQuery, [short_code]);
 
             if (output.rows.length === 0) {
-                await client.query('ROLLBACK');
-                client.release();
                 return res.status(404).json({
                     status: 'failed',
                     success: false,
@@ -91,10 +86,7 @@ export const url_generator = {
             
             const result = output.rows[0];
 
-            // Verifying if the link is active
             if (!result.is_active) {
-                await client.query('ROLLBACK');
-                client.release();
                 return res.status(400).json({
                     status: 'failed',
                     success: false,
@@ -102,10 +94,7 @@ export const url_generator = {
                 });
             }
 
-            // Verifying if the link has expired
             if (result.expired_at && new Date() > new Date(result.expired_at)) {
-                await client.query('ROLLBACK');
-                client.release();
                 return res.status(410).json({
                     status: 'failed',
                     success: false,
@@ -113,7 +102,6 @@ export const url_generator = {
                 });
             }
 
-            // auto incrementing the click count
             const update_query = `
                 UPDATE links 
                 SET click_count = click_count + 1 
@@ -124,12 +112,9 @@ export const url_generator = {
             await client.query('COMMIT');
             client.release();
 
-            // Redirecting the user to original URL
             return res.redirect(302, result.orginal_url);
 
         } catch (err) {
-            await client.query('ROLLBACK');
-            client.release();
             return res.status(500).json({
                 status: 'failed',
                 success: false,
@@ -138,4 +123,4 @@ export const url_generator = {
             });
         }
     }
-};
+}

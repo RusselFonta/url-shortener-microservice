@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { pool } from '../server.js';
+import transform from 'stream'
 
 export const checkController = {
     getHealth: (_req, res) => {
@@ -125,5 +126,70 @@ export const url_generator = {
     }
 }
 
+export const getAnalitics = {
+    csv_log: async (req, res) => {
+        try {
 
-// keyset pagination log and csv streaming
+        // prepararing the http header to initait csv file installation
+        res.setHeader('content-Type', 'text/csv')
+        res.setHeader('content-Disposition', 'attachment; filename = "smart_meter_log.csv"')
+
+        // immedaite  writing to the csv header
+        res.write('id, clicked_at, referrer, user_agent')
+
+        // creating the transformer flus
+        // the tranformer stream convert each object of the database to a raw csv raw data
+
+        // 1. creating the transformer instance for recieving data from the database and sending it back to the modified data
+        const csv_transformer = new tranformer({
+            // send an caution to the node backend for the arrival of the flux to the javacript object
+            objectMode: true,
+            tranformer(row, encoding, callback){
+                const csv_line = `${id}, ${clicked_at}, ${referrer}, ${user_agent}`
+                callback(null, csv_line)
+            }
+        })
+
+        // connecting the end of the transformer to the pipe of the user responde
+        csv_transformer.pipe(res)
+        let last_id = 0
+        let hasMore_data = true
+        const batch_size = 5000;
+
+        while(hasMore_data){
+            
+            // optimsing the request by using the id of the key 
+            const query_select = `SELECT id , clicked_at, clicked_at FROM links WHERE id > $1 ORDER BY id DECS LIMIT $2`
+            const data = [last_id,batch_size]
+            const output = await pooL.query(query_select, data)
+            const db_data = output.rows
+
+            if(db_data.length === 0){
+                hasMore_data = false
+            }
+
+            for (const row of db_data){
+                csv_transformer.write(row)
+            }
+
+            last_id = rows[row.length -1].id
+            // if the object package recieved are less than limit demanded
+            if(row.length <  batch_size){
+                hasMore_data = false
+            }
+
+            csv_transformer.end()
+
+
+        }
+
+        }catch(err){
+            return res.status(500).json({
+                success: 'failed',
+                message: 'An error occured in during the exportation process of the csv',
+                error: err.message
+            })
+        }
+    }
+
+}

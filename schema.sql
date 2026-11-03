@@ -14,7 +14,7 @@ CREATE TABLE click_log (
     id  BIGSERIAL PRIMARY KEY,
     link_id BIGINT NOT NULL REFERENCES links(id) ON DELETE CASCADE,
     clicked_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    ip_address VARCHAR(45),
+    referrer TEXT,
     user_agent TEXT
 );
 

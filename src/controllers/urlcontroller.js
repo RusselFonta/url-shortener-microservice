@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { pool } from '../server.js';
-import transform from 'stream'
+import transform from 'node:stream'
 
 export const checkController = {
     getHealth: (_req, res) => {
@@ -70,6 +70,7 @@ export const url_generator = {
         try {
             const { short_code } = req.params;
 
+            await client.query('BEGIN')
             const selectQuery = `
                 SELECT orginal_url, is_active, expired_at 
                 FROM links 
@@ -126,16 +127,32 @@ export const url_generator = {
     }
 }
 
+
+// keyset Pagination and csv streaming 
 export const getAnalitics = {
     csv_log: async (req, res) => {
         try {
+
+            const {short_code} = req.params
+
+            // verifying if the links exist and gettinf=g the id at the same time
+            const links_query = `SELECT id FROM links WHERE short_code = $1 `
+            const links_result = await pool.query(links_query, [short_code])
+            const result = links_result.rows
+
+            if(result.length === 0){
+                return res.status(404).json({
+                    status: 'failed',
+                    message: 'the short code is not found'
+                })
+            }
 
         // prepararing the http header to initait csv file installation
         res.setHeader('content-Type', 'text/csv')
         res.setHeader('content-Disposition', 'attachment; filename = "smart_meter_log.csv"')
 
         // immedaite  writing to the csv header
-        res.write('id, clicked_at, referrer, user_agent')
+        res.write('id, clicked_at, referrer, user_agent\n')
 
         // creating the transformer flus
         // the tranformer stream convert each object of the database to a raw csv raw data
@@ -145,36 +162,40 @@ export const getAnalitics = {
             // send an caution to the node backend for the arrival of the flux to the javacript object
             objectMode: true,
             tranformer(row, encoding, callback){
-                const csv_line = `${id}, ${clicked_at}, ${referrer}, ${user_agent}`
+                const clickAt = new Date(row.clicked_at).toISOString()
+                const csv_line = `${row.id}, ${row.clicked_at}, ${row.referrer}, ${row.user_agent}`
                 callback(null, csv_line)
             }
         })
 
         // connecting the end of the transformer to the pipe of the user responde
         csv_transformer.pipe(res)
+
         let last_id = 0
         let hasMore_data = true
         const batch_size = 5000;
+        const linkID = links_result.rows[0].id
 
         while(hasMore_data){
             
-            // optimsing the request by using the id of the key 
-            const query_select = `SELECT id , clicked_at, clicked_at FROM links WHERE id > $1 ORDER BY id DECS LIMIT $2`
-            const data = [last_id,batch_size]
+            // optimsing the request by using the id of the key (keyset pagination)
+            const query_select = `SELECT id , clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1 AND id > $2 ORDER BY id DECS LIMIT $3`
+            const data = [linkID, last_id, batch_size]
             const output = await pooL.query(query_select, data)
             const db_data = output.rows
 
             if(db_data.length === 0){
                 hasMore_data = false
+                break
             }
 
             for (const row of db_data){
                 csv_transformer.write(row)
             }
 
-            last_id = rows[row.length -1].id
+            last_id = db_data[db_data.length -1].id
             // if the object package recieved are less than limit demanded
-            if(row.length <  batch_size){
+            if(db_data.length <  batch_size){
                 hasMore_data = false
             }
 

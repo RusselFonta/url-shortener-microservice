@@ -80,7 +80,6 @@ export const url_generator = {
 
             if (output.rows.length === 0) {
                 await client.query('ROLLBACK');
-                client.release();
                 return res.status(404).json({
                     status: 'failed',
                     success: false,
@@ -92,7 +91,6 @@ export const url_generator = {
 
             if (!result.is_active) {
                 await client.query('ROLLBACK');
-                client.release();
                 return res.status(400).json({
                     status: 'failed',
                     success: false,
@@ -102,7 +100,6 @@ export const url_generator = {
 
             if (result.expired_at && new Date() > new Date(result.expired_at)) {
                 await client.query('ROLLBACK');
-                client.release();
                 return res.status(410).json({
                     status: 'failed',
                     success: false,
@@ -128,24 +125,25 @@ export const url_generator = {
             ]);
 
             await client.query('COMMIT');
-            client.release();
 
             return res.redirect(302, result.orginal_url);
 
         } catch (err) {
             await client.query('ROLLBACK');
-            client.release();
             return res.status(500).json({
                 status: 'failed',
                 success: false,
                 message: 'An error occurred during redirection',
                 error: err.message
             });
+        } finally {
+            // Ensures connection is always returned to the pool to prevent request timeouts
+            client.release()
         }
     }
 };
 
-// Keyset Pagination and CSV Streaming 
+// Keyset Pagination, CSV Streaming, Deletion, and Metadata 
 export const getAnalitics = {
     csv_log: async (req, res) => {
         try {
@@ -165,31 +163,31 @@ export const getAnalitics = {
             const linkID = links_result.rows[0].id;
 
             // 2. Prepare HTTP headers to initiate CSV file download
-            res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', `attachment; filename="clicks_${short_code}.csv"`);
+            res.setHeader('Content-Type', 'text/csv')
+            res.setHeader('Content-Disposition', `attachment; filename="clicks_${short_code}.csv"`)
 
             // Immediate writing to the CSV header
-            res.write('id,clicked_at,referrer,user_agent\n');
+            res.write('id,clicked_at,referrer,user_agent\n')
 
             // 3. Creating the Transform stream instance
             const csv_transformer = new Transform({
                 objectMode: true,
                 transform(row, encoding, callback) {
-                    const clickedAt = new Date(row.clicked_at).toISOString();
-                    const referrer = row.referrer ? `"${row.referrer.replace(/"/g, '""')}"` : '""';
-                    const userAgent = row.user_agent ? `"${row.user_agent.replace(/"/g, '""')}"` : '""';
+                    const clickedAt = new Date(row.clicked_at).toISOString()
+                    const referrer = row.referrer ? `"${row.referrer.replace(/"/g, '""')}"` : '""'
+                    const userAgent = row.user_agent ? `"${row.user_agent.replace(/"/g, '""')}"` : '""'
                     
-                    const csv_line = `${row.id},${clickedAt},${referrer},${userAgent}\n`;
-                    callback(null, csv_line);
+                    const csv_line = `${row.id},${clickedAt},${referrer},${userAgent}\n`
+                    callback(null, csv_line)
                 }
             });
 
             // Connecting the transformer to the response pipe
-            csv_transformer.pipe(res);
+            csv_transformer.pipe(res)
 
-            let last_id = 0;
-            let hasMore_data = true;
-            const batch_size = 5000;
+            let last_id = 0
+            let hasMore_data = true
+            const batch_size = 5000
 
             // 4. Batch loop using keyset pagination
             while (hasMore_data) {
@@ -199,24 +197,24 @@ export const getAnalitics = {
                     WHERE link_id = $1 AND id > $2 
                     ORDER BY id ASC 
                     LIMIT $3;
-                `;
+                `
                 const data = [linkID, last_id, batch_size];
-                const output = await pool.query(query_select, data);
-                const db_data = output.rows;
+                const output = await pool.query(query_select, data)
+                const db_data = output.rows
 
                 if (db_data.length === 0) {
                     hasMore_data = false;
-                    break;
+                    brea
                 }
 
                 for (const row of db_data) {
-                    csv_transformer.write(row);
+                    csv_transformer.write(row)
                 }
 
-                last_id = db_data[db_data.length - 1].id;
+                last_id = db_data[db_data.length - 1].id
 
                 if (db_data.length < batch_size) {
-                    hasMore_data = false;
+                    hasMore_data = false
                 }
             }
 
@@ -229,42 +227,79 @@ export const getAnalitics = {
                 error: err.message
             });
         }
-
     },
 
-        // Deletion endpoint
-    deleteUrl: async(req, res) => {
-        try{
-            const {short_code} = req.params
-            const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, orginal_url`
-            const del_code = [short_code]
-            const del_result = await pool.query(del_query, del_code)
+    // Deletion endpoint
+    deleteUrl: async (req, res) => {
+        try {
+            const { short_code } = req.params;
+            const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, orginal_url;`;
+            const del_code = [short_code];
+            const del_result = await pool.query(del_query, del_code);
 
             // verifying if the short code is in the database
-            if(del_result.rows.length === 0){
+            if (del_result.rows.length === 0) {
                 return res.status(404).json({
                     status: 'failed',
                     message: 'The short code is not found'
-                })
+                });
             }
 
             return res.status(200).json({
                 status: 'Passed',
                 success: true,
-                message: 'the short code was delected with related id , short_code and original_url'
-            })
+                message: 'The short code was deleted with related id , short_code and original_url'
+            });
 
-        }catch(err){
+        } catch (err) {
             return res.status(500).json({
                 status: 'failed',
                 success: false,
                 message: 'An error occured during the delection process',
                 error: err.message
-            })
+            });
+        }
+    },
+
+    // Metadata endpoint
+    metadata_url: async (req, res) => {
+        try {
+            const { short_code } = req.params;
+            const metadata_query = `SELECT id, orginal_url, short_code, click_count, is_active, created_at, expired_at FROM links WHERE short_code = $1;`
+            const metadata_code = [short_code];
+            const metadata_result = await pool.query(metadata_query, metadata_code)
+
+            if (metadata_result.rows.length === 0) {
+                return res.status(404).json({
+                    status: 'failed',
+                    message: 'The short code is not found'
+                });
+            }
+
+            const metadata_links = metadata_result.rows[0]
+
+            return res.status(200).json({
+                status: 'success',
+                success: true,
+                message: 'Metadata retrieved successfully',
+                data: {
+                    id: metadata_links.id,
+                    original_url: metadata_links.orginal_url,
+                    short_code: metadata_links.short_code,
+                    click_count: metadata_links.click_count,
+                    is_active: metadata_links.is_active,
+                    created_at: metadata_links.created_at,
+                    expired_at: metadata_links.expired_at
+                }
+            });
+
+        } catch (err) {
+            return res.status(500).json({
+                status: 'Failed',
+                success: false,
+                message: 'An error occured in your backend during the retrieval of the links metadata',
+                error: err.message
+            });
         }
     }
-
-    // metadata endpoint
-    
-
-};
+}

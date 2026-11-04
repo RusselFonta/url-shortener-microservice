@@ -10,6 +10,9 @@ router.post('/links', validation_schema, url_generator.short_url);
 // csv streaming
 router.get('/links/:short_code/clicks.csv', getAnalitics.csv_log);
 
+// metadata endpoint
+router.get('/links/:short_code', getAnalitics.metadata_url)
+
 // delecting the url
 router.delete('/links/:short_code', getAnalitics.deleteUrl);
 

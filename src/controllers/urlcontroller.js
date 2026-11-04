@@ -229,5 +229,42 @@ export const getAnalitics = {
                 error: err.message
             });
         }
+
+    },
+
+        // Deletion endpoint
+    deleteUrl: async(req, res) => {
+        try{
+            const {short_code} = req.params
+            const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, orginal_url`
+            const del_code = [short_code]
+            const del_result = await pool.query(del_query, del_code)
+
+            // verifying if the short code is in the database
+            if(del_result.rows.length === 0){
+                return res.status(404).json({
+                    status: 'failed',
+                    message: 'The short code is not found'
+                })
+            }
+
+            return res.status(200).json({
+                status: 'Passed',
+                success: true,
+                message: 'the short code was delected with related id , short_code and original_url'
+            })
+
+        }catch(err){
+            return res.status(500).json({
+                status: 'failed',
+                success: false,
+                message: 'An error occured during the delection process',
+                error: err.message
+            })
+        }
     }
+
+    // metadata endpoint
+    
+
 };

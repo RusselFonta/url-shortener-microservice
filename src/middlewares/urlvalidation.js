@@ -13,7 +13,7 @@ const url_shortener_schema = z.object({
     }),
 
   // verifying that the short_url generated respect the regex /^[A-Za-z0-9_-]{3,16}$/
-  short_url: z.string().regex(/^[A-Za-z0-9_-]{3,16}$/, {
+  short_url: z.string().regex(/^[A-Z0-9_-]{3,16}$/, {
     message:
       "the url generated must have a length of 3 to 16 and respect the provided regex",
   }).optional(),

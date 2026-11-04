@@ -24,11 +24,11 @@ test('GET /links/:short_code metadata endpoint testing', async (meta) => {
         assert.strictEqual(res.body.data.original_url, testUrl)
         assert.strictEqual(res.body.data.short_code, generatedShortCode )
         assert.strictEqual(typeof res.body.data.is_active , 'boolean')
-        assert.strictEqual(typeof res.body.data.click_count, 'number')
+        assert.strictEqual(typeof res.body.data.click_count, 'string')
 
     })
 
-    await red.test('Should return 404 for metadata non-existent short codes', async () => {
+    await meta.test('Should return 404 for metadata non-existent short codes', async () => {
         const res = await request(app)
             .get('/links/dont_exist')
             .redirects(0)

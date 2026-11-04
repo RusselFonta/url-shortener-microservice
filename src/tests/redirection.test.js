@@ -1,19 +1,19 @@
-import request from 'supertest';
-import { pool } from '../server.js';
-import app from '../app.js';
-import assert from 'node:assert';
-import test from 'node:test';
+import request from 'supertest'
+import { pool } from '../server.js'
+import app from '../app.js'
+import assert from 'node:assert'
+import test from 'node:test'
 
-test('GET /:short_code redirection and telemetry test suite', async (t) => {
+test('GET /:short_code redirection and telemetry test suite', async (red) => {
 
     let generatedShortCode;
-    const testUrl = 'https://github.com';
+    const testUrl = 'https://github.com'
 
     // Create a short link first so we have a valid code to test redirection
-    await t.test('Setup: Create a link for redirection testing', async () => {
+    await red.test('Setup: Create a link for redirection testing', async () => {
         const res = await request(app)
             .post('/links')
-            .send({ original_url: testUrl });
+            .send({ original_url: testUrl })
 
         assert.strictEqual(res.statusCode, 201);
         generatedShortCode = res.body.data.short_code;
@@ -21,7 +21,7 @@ test('GET /:short_code redirection and telemetry test suite', async (t) => {
     });
 
     // Test successful redirection 
-    await t.test('Should successfully redirect and return 302 status with correct location header', async () => {
+    await red.test('Should successfully redirect and return 302 status with correct location header', async () => {
         const res = await request(app)
             .get(`/${generatedShortCode}`)
 
@@ -30,7 +30,7 @@ test('GET /:short_code redirection and telemetry test suite', async (t) => {
     });
 
     // testing click count and the telemetry
-    await t.test('Should increment click count and log telemetry upon redirection', async () => {
+    await red.test('Should increment click count and log telemetry upon redirection', async () => {
         // Trigger another redirect to increment clicks
         await request(app)
             .get(`/${generatedShortCode}`)
@@ -40,13 +40,13 @@ test('GET /:short_code redirection and telemetry test suite', async (t) => {
         const res = await request(app).get(`/links/${generatedShortCode}`);
 
         assert.strictEqual(res.statusCode, 200);
-        assert.ok(res.body.data.click_count >= 2, 'Click count should reflect multiple redirections');
+        assert.ok(res.body.data.click_count >= 2, 'Click count should reflect multiple redirections'); 
     });
 
     // testing if the short code exit
-    await t.test('Should return 404 for non-existent short codes', async () => {
+    await red.test('Should return 404 for non-existent short codes', async () => {
         const res = await request(app)
-            .get('/nonexistent999')
+            .get('/dont_exist')
             .redirects(0)
 
         assert.strictEqual(res.statusCode, 404);

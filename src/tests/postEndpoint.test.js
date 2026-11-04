@@ -12,16 +12,16 @@ test('POST /links endpoint comprehensive test suite', async (TEP) => {
             .send({ original_url: 'https://youtube.com' });
 
         assert.strictEqual(res.statusCode, 201);
-        assert.strictEqual(res.body.data.original_url, 'https://youtube.com');
-        assert.ok(res.body.data.short_code, 'a short code must be generated'); 
+        assert.strictEqual(res.body.data.original_url, 'https://youtube.com')
+        assert.ok(res.body.data.short_code, 'a short code must be generated')
     });
 
     await TEP.test('Generated short codes must respect regex format and be unique', async (st) => {
         const regex = /^[a-zA-Z0-9_-]{3,16}$/;
         
-        const res1 = await request(app).post('/links').send({ original_url: 'https://google.com' });
-        const res2 = await request(app).post('/links').send({ original_url: 'https://github.com' });
-        const res3 = await request(app).post('/links').send({ original_url: 'https://youtube.com' });
+        const res1 = await request(app).post('/links').send({ original_url: 'https://google.com' })
+        const res2 = await request(app).post('/links').send({ original_url: 'https://github.com' })
+        const res3 = await request(app).post('/links').send({ original_url: 'https://youtube.com' })
 
         const code1 = res1.body.data.short_code;
         const code2 = res2.body.data.short_code; 

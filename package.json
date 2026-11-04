@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "format:check": "prettier --check \"src/**/*.js\"",
     "format": "prettier --write \"src/**/*.js\"",
-    "test": "node --test src/tests/endpoint.test.js"
+    "test": "node --test src/**/*.test.js"
   },
   "keywords": [],
   "author": "Russel Fonta Fadil",

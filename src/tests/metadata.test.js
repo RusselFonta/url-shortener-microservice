@@ -1,6 +1,6 @@
 import request from 'supertest'
-import app from '../app.js'
 import {pool} from '../server.js'
+import app from '../app.js'
 import test from 'node:test'
 import assert from 'node:assert'
 

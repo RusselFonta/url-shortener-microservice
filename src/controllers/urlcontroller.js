@@ -28,9 +28,9 @@ export const url_generator = {
             const short_code = crypto.randomBytes(4).toString('hex');
 
             const querytext = `
-                INSERT INTO links (orginal_url, short_code, click_count, created_at) 
+                INSERT INTO links (original_url, short_code, click_count, created_at) 
                 VALUES ($1, $2, 0, NOW()) 
-                RETURNING id, orginal_url, short_code, click_count, created_at;
+                RETURNING id, original_url, short_code, click_count, created_at;
             `;
             const values = [original_url, short_code];
 
@@ -45,7 +45,7 @@ export const url_generator = {
                 message: 'The short url was generated successfully',
                 data: {
                     id: record_url.id,
-                    original_url: record_url.orginal_url,
+                    original_url: record_url.original_url,
                     short_code: record_url.short_code,
                     shorten_url: generated_url,
                     click_count: record_url.click_count,
@@ -72,7 +72,7 @@ export const url_generator = {
 
             await client.query('BEGIN');
             const selectQuery = `
-                SELECT id, orginal_url, is_active, expired_at 
+                SELECT id, original_url, is_active, expired_at 
                 FROM links 
                 WHERE short_code = $1;
             `;
@@ -126,7 +126,7 @@ export const url_generator = {
 
             await client.query('COMMIT');
 
-            return res.redirect(302, result.orginal_url);
+            return res.redirect(302, result.original_url);
 
         } catch (err) {
             await client.query('ROLLBACK');
@@ -137,8 +137,7 @@ export const url_generator = {
                 error: err.message
             });
         } finally {
-            // Ensures connection is always returned to the pool to prevent request timeouts
-            client.release()
+            client.release();
         }
     }
 };
@@ -163,31 +162,31 @@ export const getAnalitics = {
             const linkID = links_result.rows[0].id;
 
             // 2. Prepare HTTP headers to initiate CSV file download
-            res.setHeader('Content-Type', 'text/csv')
-            res.setHeader('Content-Disposition', `attachment; filename="clicks_${short_code}.csv"`)
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename="clicks_${short_code}.csv"`);
 
             // Immediate writing to the CSV header
-            res.write('id,clicked_at,referrer,user_agent\n')
+            res.write('id,clicked_at,referrer,user_agent\n');
 
             // 3. Creating the Transform stream instance
             const csv_transformer = new Transform({
                 objectMode: true,
                 transform(row, encoding, callback) {
-                    const clickedAt = new Date(row.clicked_at).toISOString()
-                    const referrer = row.referrer ? `"${row.referrer.replace(/"/g, '""')}"` : '""'
-                    const userAgent = row.user_agent ? `"${row.user_agent.replace(/"/g, '""')}"` : '""'
+                    const clickedAt = new Date(row.clicked_at).toISOString();
+                    const referrer = row.referrer ? `"${row.referrer.replace(/"/g, '""')}"` : '""';
+                    const userAgent = row.user_agent ? `"${row.user_agent.replace(/"/g, '""')}"` : '""';
                     
-                    const csv_line = `${row.id},${clickedAt},${referrer},${userAgent}\n`
-                    callback(null, csv_line)
+                    const csv_line = `${row.id},${clickedAt},${referrer},${userAgent}\n`;
+                    callback(null, csv_line);
                 }
             });
 
             // Connecting the transformer to the response pipe
-            csv_transformer.pipe(res)
+            csv_transformer.pipe(res);
 
-            let last_id = 0
-            let hasMore_data = true
-            const batch_size = 5000
+            let last_id = 0;
+            let hasMore_data = true;
+            const batch_size = 5000;
 
             // 4. Batch loop using keyset pagination
             while (hasMore_data) {
@@ -197,24 +196,24 @@ export const getAnalitics = {
                     WHERE link_id = $1 AND id > $2 
                     ORDER BY id ASC 
                     LIMIT $3;
-                `
+                `;
                 const data = [linkID, last_id, batch_size];
-                const output = await pool.query(query_select, data)
-                const db_data = output.rows
+                const output = await pool.query(query_select, data);
+                const db_data = output.rows;
 
                 if (db_data.length === 0) {
                     hasMore_data = false;
-                    brea
+                    break;
                 }
 
                 for (const row of db_data) {
-                    csv_transformer.write(row)
+                    csv_transformer.write(row);
                 }
 
-                last_id = db_data[db_data.length - 1].id
+                last_id = db_data[db_data.length - 1].id;
 
                 if (db_data.length < batch_size) {
-                    hasMore_data = false
+                    hasMore_data = false;
                 }
             }
 
@@ -233,7 +232,7 @@ export const getAnalitics = {
     deleteUrl: async (req, res) => {
         try {
             const { short_code } = req.params;
-            const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, orginal_url;`;
+            const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, original_url;`;
             const del_code = [short_code];
             const del_result = await pool.query(del_query, del_code);
 
@@ -265,9 +264,9 @@ export const getAnalitics = {
     metadata_url: async (req, res) => {
         try {
             const { short_code } = req.params;
-            const metadata_query = `SELECT id, orginal_url, short_code, click_count, is_active, created_at, expired_at FROM links WHERE short_code = $1;`
+            const metadata_query = `SELECT id, original_url, short_code, click_count, is_active, created_at, expired_at FROM links WHERE short_code = $1;`;
             const metadata_code = [short_code];
-            const metadata_result = await pool.query(metadata_query, metadata_code)
+            const metadata_result = await pool.query(metadata_query, metadata_code);
 
             if (metadata_result.rows.length === 0) {
                 return res.status(404).json({
@@ -276,7 +275,7 @@ export const getAnalitics = {
                 });
             }
 
-            const metadata_links = metadata_result.rows[0]
+            const metadata_links = metadata_result.rows[0];
 
             return res.status(200).json({
                 status: 'success',
@@ -284,7 +283,7 @@ export const getAnalitics = {
                 message: 'Metadata retrieved successfully',
                 data: {
                     id: metadata_links.id,
-                    original_url: metadata_links.orginal_url,
+                    original_url: metadata_links.original_url,
                     short_code: metadata_links.short_code,
                     click_count: metadata_links.click_count,
                     is_active: metadata_links.is_active,
@@ -302,4 +301,4 @@ export const getAnalitics = {
             });
         }
     }
-}
+};

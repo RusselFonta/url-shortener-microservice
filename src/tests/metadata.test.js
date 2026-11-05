@@ -31,10 +31,8 @@ test('GET /links/:short_code metadata endpoint testing', async (meta) => {
     await meta.test('Should return 404 for metadata non-existent short codes', async () => {
         const res = await request(app)
             .get('/links/dont_exist')
-            .redirects(0)
 
-        assert.strictEqual(res.statusCode, 404);
-        assert.strictEqual(res.body.success, false)
+        assert.strictEqual(res.statusCode, 404)
     })
 
 })

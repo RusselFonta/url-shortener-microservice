@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 // Export the pool so controllers can use it for queries and transactions
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl:{rejectUnauthorised: false}
 });
 
 // Testing the connection to the postgreSQL database

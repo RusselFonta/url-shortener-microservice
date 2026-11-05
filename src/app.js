@@ -12,7 +12,7 @@ app.use(cors());
 
 app.use(express.json());
 
-const swaggerDocument = YAML.load('./swagger.yaml');
+const swaggerDocument = YAML.load('../swagger.yaml');
 
 // Serve Swagger UI at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

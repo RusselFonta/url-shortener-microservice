@@ -4,6 +4,8 @@ info:
   version: 1.0.0
   description: High-performance URL shortener API built with Node.js, Express, and PostgreSQL, featuring atomic click tracking and CSV analytics.
 servers:
+  - url: https://url-shortener-microservice-ccia.onrender.com
+    description: Production Server (Render)
   - url: http://localhost:3000
     description: Local development server
 

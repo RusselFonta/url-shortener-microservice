@@ -6,18 +6,18 @@ import test from 'node:test'
 
 test('GET /links/:short_code/clicks.csv for csv streaming endpoint testing' async (csv) => {
     let generatedShortCode
-    const testUrl = 'https://youtude.com'
+    const testUrl = 'https://youtube.com'
 
     // creating a new short code and carrying redirection
     await csv.test('creating a new short code for rediredction', async () => {
-        const res = await request(app).get('/links').send({original_url: testUrl})
+        const res = await request(app).post('/links').send({original_url: testUrl})
 
         assert.strictEqual(res.statusCode, 201)
         generatedShortCode = res.body.data.short_code
         assert.ok(generatedShortCode, 'A short code was successfully generated')
 
         // testing the rediection
-        const redirect = await request(app).get(`${generatedShortCode}`).redirects(0)
+        const redirect = await request(app).get(`/${generatedShortCode}`).redirects(0)
 
         // testing the csv streaming if it is working 
         await csv.test('creating stream getAnalytics with the download csv with the approprate header', async () => {
@@ -26,12 +26,12 @@ test('GET /links/:short_code/clicks.csv for csv streaming endpoint testing' asyn
             assert.strictEqual(res.statusCode, 200)
 
             // verify the csv content type
-            assert.match(res.headers[content-type], /text\/csv\)
-            assert.ok(res.headers[content-Disposition].include(attachment), 'content-disposition must be set as a download attachement')
+            assert.match(res.headers['content-type'], /text\/csv\)
+            assert.ok(res.headers['content-Disposition'].includes('attachment'), 'content-disposition must be set as a download attachement')
 
             // verifying if the csv body contain the required columns
             assert.ok(res.text, 'the response body javascript object must contain a csv data')
-            assert.ok(res.text.include(clicked_at) || res.text.include(referer))
+            assert.ok(res.text.includes('clicked_at') || res.text.includes('referer'))
         })
 
         await csvTest.test('Should return 404 when exporting CSV for non-existent short code', async () => {
@@ -40,7 +40,5 @@ test('GET /links/:short_code/clicks.csv for csv streaming endpoint testing' asyn
         assert.strictEqual(res.statusCode, 404);
         assert.strictEqual(res.body.success, false);
     });
-
-    })
 
 })

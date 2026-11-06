@@ -52,7 +52,7 @@ async function initDB() {
     await client.query(createTablesQuery);
     console.log("the required table are created with success!");
   } catch (err) {
-    console.error("Erreur :", err.mesage);
+    console.error("Error :", err.mesage);
   } finally {
     await client.end();
   }

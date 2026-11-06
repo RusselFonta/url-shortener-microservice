@@ -37,7 +37,7 @@ test('POST /links endpoint comprehensive test suite', async (TEP) => {
         assert.strictEqual(
             ensembleUnique.size, 
             listeCodes.length, 
-            'Erreur : Des codes courts identiques ont été générés (doublons) !'
+            'Erreur : identical short code where found (Duplicate) '
         );
     });
 

@@ -1,0 +1,97 @@
+openapi: 3.0.0
+info:
+  title: URL Shortener Microservice API
+  version: 1.0.0
+  description: High-performance URL shortener API built with Node.js, Express, and PostgreSQL, featuring atomic click tracking and CSV analytics.
+servers:
+  - url: http://localhost:10000
+    description: Production Server (Render)
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /links:
+    post:
+      summary: Create a short link
+      description: Generates a unique short code for a given long URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - original_url
+              properties:
+                original_url:
+                  type: string
+                  format: uri
+                  example: https://github.com
+      responses:
+        '201':
+          description: Link successfully created
+        '400':
+          description: Invalid URL or missing original_url field
+
+  /{short_code}:
+    get:
+      summary: Redirect to original URL
+      description: Redirects the client to the destination URL with a 302 status and atomically increments the click counter and logs telemetry.
+      parameters:
+        - name: short_code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Successful redirection
+        '404':
+          description: Short code not found
+
+  /links/{short_code}:
+    get:
+      summary: Get link metadata
+      description: Retrieves metadata and statistics (like click count) for a specific short code.
+      parameters:
+        - name: short_code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Metadata retrieved successfully
+        '404':
+          description: Short code not found
+    delete:
+      summary: Delete a short link
+      description: Removes the short link and cascades deletion to click logs.
+      parameters:
+        - name: short_code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Link successfully deleted
+        '404':
+          description: Short code not found
+
+  /links/{short_code}/clicks.csv:
+    get:
+      summary: Export click analytics as CSV
+      description: Streams a CSV file containing detailed click telemetry (timestamps, referrers, user agents).
+      parameters:
+        - name: short_code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CSV file download stream
+        '404':
+          description: Short code not found
+          

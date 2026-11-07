@@ -9,25 +9,32 @@
     "lint": "eslint .",
     "format:check": "prettier --check \"src/**/*.js\"",
     "format": "prettier --write \"src/**/*.js\"",
-    "test": "node --test"
+    "test": "node --test src/**/*.test.js"
   },
   "keywords": [],
   "author": "Russel Fonta Fadil",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
     "nanoid": "^6.0.2",
     "pg": "^8.23.1",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.19.0",
+    "yamljs": "^0.3.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/yamljs": "^0.2.34",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
     "nodemon": "^3.1.14",
-    "prettier": "^3.9.10"
+    "prettier": "^3.9.10",
+    "supertest": "^7.3.1"
   }
 }

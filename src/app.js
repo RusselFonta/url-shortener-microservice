@@ -24,9 +24,6 @@ const swaggerDocument = YAML.load('./swagger.yaml');
 // Serve Swagger UI at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// Mounting url-route
-app.use("/", urlroute);
-
 // Health check route
 app.get("/health", (req, res) => {
   logger.info("Health check endpoint accessed");
@@ -34,6 +31,9 @@ app.get("/health", (req, res) => {
     .status(200)
     .json({ status: "Success", message: "URL shortener is running" });
 });
+
+// Mounting url-route
+app.use("/", urlroute);
 
 app.use(error_handle)
 

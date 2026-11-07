@@ -1,19 +1,19 @@
-import logger from "../config/logger";
+import logger from "./config/logger.js";
 
 const error_handle = (err, req, res, next) => {
-    const status_code = err.statusCode
+    const status_code = err.statusCode || 500
 
     logger.error({
-        Message: err.Message,
+        Message: err.message,
         Status: err.statusCode,
         stack: err.stack,
-        url: err.url
+        url: req.url,
+        method:req.method
     })
 
     res.status(status_code).json({
         message: err.message,
         status: status_code,
-
     })
 
 }

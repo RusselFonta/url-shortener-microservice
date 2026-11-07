@@ -16,7 +16,7 @@ test('POST /links endpoint comprehensive test suite', async (TEP) => {
         assert.ok(res.body.data.short_code, 'a short code must be generated')
     });
 
-    await TEP.test('Generated short codes must respect regex format and be unique', async (st) => {
+    await TEP.test('Generated short codes must respect regex format and be unique', async () => {
         const regex = /^[a-zA-Z0-9_-]{3,16}$/;
         
         const res1 = await request(app).post('/links').send({ original_url: 'https://google.com' })

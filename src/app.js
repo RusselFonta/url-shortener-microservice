@@ -4,6 +4,7 @@ import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import path from 'path';
 import urlroute from "./routes/urlroute.js"; 
+import logger from "./config/logger.js";
 
 const app = express();
 
@@ -11,6 +12,11 @@ const app = express();
 app.use(cors());
 
 app.use(express.json());
+
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.url}`);
+  next();
+});
 
 const swaggerDocument = YAML.load('./swagger.yaml');
 
@@ -22,6 +28,7 @@ app.use("/", urlroute);
 
 // Health check route
 app.get("/health", (req, res) => {
+  logger.info("Health check endpoint accessed");
   res
     .status(200)
     .json({ status: "Success", message: "URL shortener is running" });

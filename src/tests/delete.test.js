@@ -1,37 +1,50 @@
-import request from 'supertest'
-import { pool } from '../server.js'
-import app from '../app.js'
-import assert from 'node:assert'
-import test from 'node:test'
+import request from "supertest";
+import { pool } from "../server.js";
+import app from "../app.js";
+import assert from "node:assert";
+import test from "node:test";
 
-test('DELETE /links/:short_code deletion endpoint testing', async (del) => {
-    let generatedShortCode
-    const testUrl = 'https://youtube.com'
+test("DELETE /links/:short_code deletion endpoint testing", async (del) => {
+  let generatedShortCode;
+  const testUrl = "https://youtube.com";
 
-    // 1. Create a short link 
-    await del.test('creating a short code for deletion testing', async () => {
-        const createRes = await request(app).post('/links').send({ original_url: testUrl })
-        
-        assert.strictEqual(createRes.statusCode, 201)
-        generatedShortCode = createRes.body.data.short_code
-        assert.ok(generatedShortCode, 'A short code was generated successfully')
-    })
+  // 1. Create a short link
+  await del.test("creating a short code for deletion testing", async () => {
+    const createRes = await request(app)
+      .post("/links")
+      .send({ original_url: testUrl });
 
-    // 2. Testing the deletion endpoint
-    await del.test('the created short code must be successfully deleted', async () => {
-        const deleteRes = await request(app).delete(`/links/${generatedShortCode}`)
-        assert.strictEqual(deleteRes.statusCode, 200)
-    })
+    assert.strictEqual(createRes.statusCode, 201);
+    generatedShortCode = createRes.body.data.short_code;
+    assert.ok(generatedShortCode, "A short code was generated successfully");
+  });
 
-    // 3. Testing if the link was perfectly deleted
-    await del.test('should return 404 when querying metadata of a deleted link', async () => {
-        const metaRes = await request(app).get(`/links/${generatedShortCode}`)
-        assert.strictEqual(metaRes.statusCode, 404)
-    })
+  // 2. Testing the deletion endpoint
+  await del.test(
+    "the created short code must be successfully deleted",
+    async () => {
+      const deleteRes = await request(app).delete(
+        `/links/${generatedShortCode}`,
+      );
+      assert.strictEqual(deleteRes.statusCode, 200);
+    },
+  );
 
-    // 4. Testing the deletion of a non-existing link
-    await del.test('Should return 404 if a non-existing short code is deleted', async () => {
-        const notFoundRes = await request(app).delete('/links/non_exist')
-        assert.strictEqual(notFoundRes.statusCode, 404)
-    })
-})
+  // 3. Testing if the link was perfectly deleted
+  await del.test(
+    "should return 404 when querying metadata of a deleted link",
+    async () => {
+      const metaRes = await request(app).get(`/links/${generatedShortCode}`);
+      assert.strictEqual(metaRes.statusCode, 404);
+    },
+  );
+
+  // 4. Testing the deletion of a non-existing link
+  await del.test(
+    "Should return 404 if a non-existing short code is deleted",
+    async () => {
+      const notFoundRes = await request(app).delete("/links/non_exist");
+      assert.strictEqual(notFoundRes.statusCode, 404);
+    },
+  );
+});

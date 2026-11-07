@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
-import swaggerUi from 'swagger-ui-express';
-import YAML from 'yamljs';
-import path from 'path';
-import urlroute from "./routes/urlroute.js"; 
+import swaggerUi from "swagger-ui-express";
+import YAML from "yamljs";
+import path from "path";
+import urlroute from "./routes/urlroute.js";
 import logger from "./config/logger.js";
 import error_handle from "./controllers/error-handler.js";
 
@@ -19,10 +19,10 @@ app.use((req, res, next) => {
   next();
 });
 
-const swaggerDocument = YAML.load('./swagger.yaml');
+const swaggerDocument = YAML.load("./swagger.yaml");
 
 // Serve Swagger UI at /api-docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health check route
 app.get("/health", (req, res) => {
@@ -35,6 +35,6 @@ app.get("/health", (req, res) => {
 // Mounting url-route
 app.use("/", urlroute);
 
-app.use(error_handle)
+app.use(error_handle);
 
 export default app;

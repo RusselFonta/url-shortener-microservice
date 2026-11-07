@@ -3,7 +3,7 @@ import logger from "../config/logger";
 const error_handle = (err, req, res, next) => {
     const status_code = err.statusCode
 
-    Logger.error({
+    logger.error({
         Message: err.Message,
         Status: err.statusCode,
         stack: err.stack,

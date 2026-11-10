@@ -1,6 +1,9 @@
 import crypto from "crypto";
 import { pool } from "../server.js";
 import { Transform } from "node:stream";
+import logger from "../config/logger.js";
+import { after } from "node:test";
+import { success } from "zod";
 
 export const checkController = {
   getHealth: (_req, res) => {
@@ -142,8 +145,70 @@ export const url_generator = {
 
 // Keyset Pagination, CSV Streaming, Deletion, and Metadata
 export const getAnalitics = {
+
+  // pagination
+  get_clicks: async (req, res ) => {
+    try{
+    // extraction of short code form the request param using object destructuring
+    const {short_code} = req.params
+    const limit_val = parseInt(req.query.limit || 10) || 50;
+    const after_val = parseInt(req.query.after || 10) || 0;
+
+    if(isNaN(limit_val) || limit_val < 1 || limit_val > 100 || isNaN(after_val) || after_val < 0){
+      return res.status(400).json({
+        status: "failed",
+        success: false,
+        message: "An error occurred during the pagination process the pagin limit must be 1-100 and after must be >= 0"
+      })
+    }
+
+    // verifying if the shortcode exist
+    const links_query = `SELECT id FROM links WHERE short_code = $1`
+    const links_result = await pool.query(links_query, [short_code])
+
+    if(links_result.rows.length === 0){
+      return res.status(404).json({
+        status: 'failed',
+        success: false,
+        message: "the short code wasn't found "
+      })
+    }
+
+    const link_id = links_result.rows[0].id
+
+    // fetching ofr the page
+    const query_select = `SELECT id, clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1 AND id > $2 ORDER BY id DESC LIMIT $3`
+    const click_result = await pool.query(query_select, [link_id, after_val, limit_val])
+
+    const data = click_result.rows
+
+    // extraction of the next cursor
+    const next_cursor = data.length > 0 ? data[data.length - 1].id : null;
+
+    return res.status(200).json({
+      status: 'success',
+      success: true,
+      data: data,
+      pagination: {
+        limit: limit_val,
+        after: after_val,
+        next_cursor: next_cursor,
+        has_more: data.length === limit_val
+      }
+    })
+
+  }catch(err){
+    logger.error(`Error: ${err.message}, stacks: ${err.stack}`)
+    return res.status(500).json({
+      status: 'failed',
+      success: false,
+      message: 'an error occured while retrieving click log'
+    })
+  }
+
+  },
   csv_log: async (req, res) => {
-    try {
+    try { 
       const { short_code } = req.params;
 
       // 1. Verify link existence and get the internal ID

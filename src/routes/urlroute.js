@@ -8,7 +8,7 @@ const router = express.Router();
 router.post("/links", validation_schema, url_generator.short_url);
 
 // keyset pagination
-// router.get("/links/:short_code/clicks", getAnalitics.get_clicks)
+router.get("/links/:short_code/clicks", getAnalitics.get_clicks);
 
 // csv streaming
 router.get("/links/:short_code/clicks.csv", getAnalitics.csv_log);

@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import path from "path";
 import urlroute from "./routes/urlroute.js";
 import logger from "./config/logger.js";
 import error_handle from "./controllers/error-handler.js";

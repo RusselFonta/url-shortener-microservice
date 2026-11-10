@@ -1,9 +1,7 @@
 import crypto from "crypto";
-import { pool } from "../server.js";
+import { pool } from "../config/db.js";
 import { Transform } from "node:stream";
 import logger from "../config/logger.js";
-import { _after } from "node:test";
-import { _success } from "zod";
 
 export const checkController = {
   getHealth: (_req, res) => {

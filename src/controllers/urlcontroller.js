@@ -17,23 +17,23 @@ export const url_generator = {
   // 1. Generate short URL (POST /shorten)
   short_url: async (req, res) => {
     try {
-      const { original_url } = req.body;
+      const { target_url } = req.body;
 
-      if (!original_url) {
+      if (!target_url) {
         return res.status(400).json({
           status: "failed",
-          message: "The original url is missing",
+          message: "The target url is missing",
         });
       }
 
       const short_code = crypto.randomBytes(4).toString("hex");
 
       const querytext = `
-                INSERT INTO links (original_url, short_code, click_count, created_at) 
+                INSERT INTO links (target_url, short_code, click_count, created_at) 
                 VALUES ($1, $2, 0, NOW()) 
-                RETURNING id, original_url, short_code, click_count, created_at;
+                RETURNING id, target_url, short_code, click_count, created_at;
             `;
-      const values = [original_url, short_code];
+      const values = [target_url, short_code];
 
       const output = await pool.query(querytext, values);
       const record_url = output.rows[0];
@@ -46,7 +46,7 @@ export const url_generator = {
         message: "The short url was generated successfully",
         data: {
           id: record_url.id,
-          original_url: record_url.original_url,
+          target_url: record_url.target_url,
           short_code: record_url.short_code,
           shorten_url: generated_url,
           click_count: record_url.click_count,
@@ -73,7 +73,7 @@ export const url_generator = {
 
       await client.query("BEGIN");
       const selectQuery = `
-                SELECT id, original_url, is_active, expired_at 
+                SELECT id, target_url, is_active, expired_at 
                 FROM links 
                 WHERE short_code = $1;
             `;
@@ -127,7 +127,7 @@ export const url_generator = {
 
       await client.query("COMMIT");
 
-      return res.redirect(302, result.original_url);
+      return res.redirect(302, result.target_url);
     } catch (err) {
       await client.query("ROLLBACK");
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
@@ -148,7 +148,6 @@ export const getAnalitics = {
   // pagination
   get_clicks: async (req, res) => {
     try {
-      // extraction of short code form the request param using object destructuring
       const { short_code } = req.params;
       const limit_val = parseInt(req.query.limit, 10) || 50;
       const after_val = parseInt(req.query.after, 10) || 0;
@@ -168,7 +167,6 @@ export const getAnalitics = {
         });
       }
 
-      // verifying if the shortcode exist
       const links_query = `SELECT id FROM links WHERE short_code = $1`;
       const links_result = await pool.query(links_query, [short_code]);
 
@@ -182,7 +180,6 @@ export const getAnalitics = {
 
       const link_id = links_result.rows[0].id;
 
-      // fetching ofr the page
       const query_select = `SELECT id, clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1 AND id > $2 ORDER BY id DESC LIMIT $3`;
       const click_result = await pool.query(query_select, [
         link_id,
@@ -191,8 +188,6 @@ export const getAnalitics = {
       ]);
 
       const data = click_result.rows;
-
-      // extraction of the next cursor
       const next_cursor = data.length > 0 ? data[data.length - 1].id : null;
 
       return res.status(200).json({
@@ -215,11 +210,11 @@ export const getAnalitics = {
       });
     }
   },
+
   csv_log: async (req, res) => {
     try {
       const { short_code } = req.params;
 
-      // 1. Verify link existence and get the internal ID
       const links_query = `SELECT id FROM links WHERE short_code = $1;`;
       const links_result = await pool.query(links_query, [short_code]);
 
@@ -232,17 +227,14 @@ export const getAnalitics = {
 
       const linkID = links_result.rows[0].id;
 
-      // 2. Prepare HTTP headers to initiate CSV file download
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
         "Content-Disposition",
         `attachment; filename="clicks_${short_code}.csv"`,
       );
 
-      // Immediate writing to the CSV header
       res.write("id,clicked_at,referrer,user_agent\n");
 
-      // 3. Creating the Transform stream instance
       const csv_transformer = new Transform({
         objectMode: true,
         transform(row, encoding, callback) {
@@ -259,14 +251,12 @@ export const getAnalitics = {
         },
       });
 
-      // Connecting the transformer to the response pipe
       csv_transformer.pipe(res);
 
       let last_id = 0;
       let hasMore_data = true;
       const batch_size = 5000;
 
-      // 4. Batch loop using keyset pagination
       while (hasMore_data) {
         const query_select = `
                     SELECT id, clicked_at, referrer, user_agent 
@@ -310,11 +300,10 @@ export const getAnalitics = {
   deleteUrl: async (req, res) => {
     try {
       const { short_code } = req.params;
-      const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, original_url;`;
+      const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, target_url;`;
       const del_code = [short_code];
       const del_result = await pool.query(del_query, del_code);
 
-      // verifying if the short code is in the database
       if (del_result.rows.length === 0) {
         return res.status(404).json({
           status: "failed",
@@ -326,7 +315,7 @@ export const getAnalitics = {
         status: "Passed",
         success: true,
         message:
-          "The short code was deleted with related id , short_code and original_url",
+          "The short code was deleted with related id , short_code and target_url",
       });
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
@@ -343,7 +332,7 @@ export const getAnalitics = {
   metadata_url: async (req, res) => {
     try {
       const { short_code } = req.params;
-      const metadata_query = `SELECT id, original_url, short_code, click_count, is_active, created_at, expired_at FROM links WHERE short_code = $1;`;
+      const metadata_query = `SELECT id, target_url, short_code, click_count, is_active, created_at, expired_at FROM links WHERE short_code = $1;`;
       const metadata_code = [short_code];
       const metadata_result = await pool.query(metadata_query, metadata_code);
 
@@ -362,7 +351,7 @@ export const getAnalitics = {
         message: "Metadata retrieved successfully",
         data: {
           id: metadata_links.id,
-          original_url: metadata_links.original_url,
+          target_url: metadata_links.target_url,
           short_code: metadata_links.short_code,
           click_count: metadata_links.click_count,
           is_active: metadata_links.is_active,

@@ -2,9 +2,9 @@ DROP TABLE IF EXISTS click_log CASCADE;
 DROP TABLE IF EXISTS links CASCADE;
 CREATE TABLE links (
     id BIGSERIAL PRIMARY KEY,
-    original_url TEXT NOT NULL,
+    targer_url TEXT NOT NULL,
     short_code VARCHAR(16) UNIQUE NOT NULL,
-    click_count BIGINT DEFAULT 0 NOT NULL,
+    click_count BIGINT DEFAULT 0 NOT NULL CHECK (click_count > 0),
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     expired_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP NOT NULL

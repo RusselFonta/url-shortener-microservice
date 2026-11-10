@@ -2,9 +2,9 @@ openapi: 3.0.0
 info:
   title: URL Shortener Microservice API
   version: 1.0.0
-  description: High-performance URL shortener API built with Node.js, Express, and PostgreSQL, featuring atomic click tracking and CSV analytics.
+  description: High-performance URL shortener API built with Node.js, Express, and PostgreSQL, featuring atomic click tracking, keyset pagination, and CSV analytics.
 servers:
-  - url: http://localhost:10000
+  - url: https://ur-shortener-microservice.onrender.com
     description: Production Server (Render)
   - url: http://localhost:3000
     description: Local development server
@@ -13,7 +13,7 @@ paths:
   /links:
     post:
       summary: Create a short link
-      description: Generates a unique short code for a given long URL.
+      description: Generates a unique short code for a given target URL, supporting optional vanity codes and expiration timestamps.
       requestBody:
         required: true
         content:
@@ -21,22 +21,33 @@ paths:
             schema:
               type: object
               required:
-                - original_url
+                - target_url
               properties:
-                original_url:
+                target_url:
                   type: string
                   format: uri
                   example: https://github.com
+                code:
+                  type: string
+                  example: my-custom-link
+                  description: Optional custom vanity short code (3-16 alphanumeric characters, dashes, or underscores)
+                expires_at:
+                  type: string
+                  format: date-time
+                  example: 2027-01-01T00:00:00.000Z
+                  description: Optional ISO 8601 future expiration datetime
       responses:
         '201':
           description: Link successfully created
         '400':
-          description: Invalid URL or missing original_url field
+          description: Validation failed (invalid URL, past expiry date, or malformed body)
+        '409':
+          description: Vanity code is already taken
 
   /{short_code}:
     get:
-      summary: Redirect to original URL
-      description: Redirects the client to the destination URL with a 302 status and atomically increments the click counter and logs telemetry.
+      summary: Redirect to target URL
+      description: Redirects the client to the destination URL with a 302 status, atomically increments the click counter, and logs telemetry. Returns 410 if expired or inactive.
       parameters:
         - name: short_code
           in: path
@@ -48,11 +59,13 @@ paths:
           description: Successful redirection
         '404':
           description: Short code not found
+        '410':
+          description: Short code has expired or is inactive
 
   /links/{short_code}:
     get:
       summary: Get link metadata
-      description: Retrieves metadata and statistics (like click count) for a specific short code.
+      description: Retrieves metadata and statistics (like click count and status) for a specific short code.
       parameters:
         - name: short_code
           in: path
@@ -66,7 +79,7 @@ paths:
           description: Short code not found
     delete:
       summary: Delete a short link
-      description: Removes the short link and cascades deletion to click logs.
+      description: Removes the short link and cascades deletion to click logs. Returns no content on success.
       parameters:
         - name: short_code
           in: path
@@ -74,15 +87,49 @@ paths:
           schema:
             type: string
       responses:
+        '204':
+          description: Link successfully deleted (No Content)
+        '404':
+          description: Short code not found
+
+  /links/{short_code}/clicks:
+    get:
+      summary: Get keyset-paginated click logs
+      description: Retrieves a paginated list of click events for the given short code using cursor-based keyset pagination.
+      parameters:
+        - name: short_code
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Number of records to return (1-100)
+        - name: after
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Cursor ID to fetch records after
+      responses:
         '200':
-          description: Link successfully deleted
+          description: Click logs page retrieved successfully
+        '400':
+          description: Invalid pagination parameters
         '404':
           description: Short code not found
 
   /links/{short_code}/clicks.csv:
     get:
       summary: Export click analytics as CSV
-      description: Streams a CSV file containing detailed click telemetry (timestamps, referrers, user agents).
+      description: Streams a CSV file containing detailed click telemetry (timestamps, referrers, user agents) using id-keyset batching.
       parameters:
         - name: short_code
           in: path
@@ -94,4 +141,3 @@ paths:
           description: CSV file download stream
         '404':
           description: Short code not found
-          

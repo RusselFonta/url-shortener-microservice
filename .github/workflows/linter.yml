@@ -16,6 +16,21 @@ jobs:
     name: format, lint, typecheck, test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: url_app_user
+          POSTGRES_PASSWORD: fonta99
+          POSTGRES_DB: url_shortener
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -36,4 +51,8 @@ jobs:
         run: npm run lint
 
       - name: Run tests
+        env:
+          DATABASE_URL: postgresql://url_app_user:fonta99@localhost:5432/url_shortener
+          PORT: 3000
         run: npm test
+        

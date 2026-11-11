@@ -9,9 +9,7 @@ test("GET /links/:short_code metadata endpoint testing", async (meta) => {
   const testUrl = "https://youtube.com";
 
   await meta.test("creating a link for the metadata testing", async () => {
-    const res = await request(app)
-      .post("/links")
-      .send({ target_url: testUrl });
+    const res = await request(app).post("/links").send({ target_url: testUrl });
 
     assert.strictEqual(res.statusCode, 201);
     generatedShortCode = res.body.data.short_code;
@@ -29,7 +27,8 @@ test("GET /links/:short_code metadata endpoint testing", async (meta) => {
       assert.strictEqual(res.body.data.short_code, generatedShortCode);
       assert.strictEqual(typeof res.body.data.is_active, "boolean");
       assert.ok(
-        typeof res.body.data.click_count === "number" || typeof res.body.data.click_count === "string"
+        typeof res.body.data.click_count === "number" ||
+          typeof res.body.data.click_count === "string",
       );
     },
   );

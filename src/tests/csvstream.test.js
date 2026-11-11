@@ -10,9 +10,7 @@ test("GET /links/:short_code/clicks.csv for csv streaming endpoint testing", asy
 
   // 1. Creating a new short code
   await csv.test("creating a new short code for redirection", async () => {
-    const res = await request(app)
-      .post("/links")
-      .send({ target_url: testUrl });
+    const res = await request(app).post("/links").send({ target_url: testUrl });
 
     assert.strictEqual(res.statusCode, 201);
     generatedShortCode = res.body.data.short_code;
@@ -61,5 +59,4 @@ test("GET /links/:short_code/clicks.csv for csv streaming endpoint testing", asy
       assert.strictEqual(res.statusCode, 404);
     },
   );
-})
-
+});

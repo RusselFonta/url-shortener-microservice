@@ -10,9 +10,7 @@ test("GET /:short_code redirection and telemetry test suite", async (red) => {
 
   // Create a short link first so we have a valid code to test redirection
   await red.test("Setup: Create a link for redirection testing", async () => {
-    const res = await request(app)
-      .post("/links")
-      .send({ target_url: testUrl });
+    const res = await request(app).post("/links").send({ target_url: testUrl });
 
     assert.strictEqual(res.statusCode, 201);
     generatedShortCode = res.body.data.short_code;

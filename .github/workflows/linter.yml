@@ -50,12 +50,7 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      - name: Run database migration
-        env:
-          DATABASE_URL: postgresql://url_app_user:fonta99@localhost:5432/url_shortener
-        run: node init-db.js
-
-      - name: Run tests
+      - name: Run tests & migrations
         env:
           DATABASE_URL: postgresql://url_app_user:fonta99@localhost:5432/url_shortener
           PORT: 3000

@@ -1,12 +1,15 @@
 import pkg from "pg";
-import dotenv from "dotenv"
+import dotenv from "dotenv";
 
-dotenv.config()
-const {Client} = pkg
+dotenv.config();
+const { Client } = pkg;
+
+// Automatically detect local/CI environments to toggle SSL
+const isLocal = process.env.DATABASE_URL?.includes("localhost") || process.env.DATABASE_URL?.includes("127.0.0.1");
 
 const client = new Client({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: isLocal ? false : { rejectUnauthorized: false }
 });
 
 const createTablesQuery = `
@@ -37,11 +40,11 @@ CREATE INDEX IF NOT EXISTS idx_click_log_link_id_clicked ON click_log(link_id, c
 async function initDB() {
   try {
     await client.connect();
-    console.log("A successful coneection was established with render");
+    console.log("A successful connection was established with the database");
     await client.query(createTablesQuery);
-    console.log("the required table are created with success!");
+    console.log("The required tables are created with success!");
   } catch (err) {
-    console.error("Error :", err.message);
+    console.error("Error:", err.message);
   } finally {
     await client.end();
   }

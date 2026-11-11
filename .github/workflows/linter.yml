@@ -50,9 +50,16 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Run database migration
+        env:
+          DATABASE_URL: postgresql://url_app_user:fonta99@localhost:5432/url_shortener
+        run: |
+          # If you use a custom node migration script, e.g.: npm run migrate
+          # Or if you apply your SQL schema file directly via psql:
+          psql $DATABASE_URL -f src/db/schema.sql
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://url_app_user:fonta99@localhost:5432/url_shortener
           PORT: 3000
         run: npm test
-        

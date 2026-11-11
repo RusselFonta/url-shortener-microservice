@@ -1,8 +1,8 @@
 import request from "supertest";
-import { pool } from "../server.js";
+import { pool } from "../config/db.js";
 import app from "../app.js";
-import assert from "node:assert";
 import test from "node:test";
+import assert from "node:assert";
 
 test("DELETE /links/:short_code deletion endpoint testing", async (del) => {
   let generatedShortCode;
@@ -12,21 +12,21 @@ test("DELETE /links/:short_code deletion endpoint testing", async (del) => {
   await del.test("creating a short code for deletion testing", async () => {
     const createRes = await request(app)
       .post("/links")
-      .send({ original_url: testUrl });
+      .send({ target_url: testUrl });
 
     assert.strictEqual(createRes.statusCode, 201);
     generatedShortCode = createRes.body.data.short_code;
     assert.ok(generatedShortCode, "A short code was generated successfully");
   });
 
-  // 2. Testing the deletion endpoint
+  // 2. Testing the deletion endpoint (Expecting 204 No Content per OpenAPI spec)
   await del.test(
     "the created short code must be successfully deleted",
     async () => {
       const deleteRes = await request(app).delete(
         `/links/${generatedShortCode}`,
       );
-      assert.strictEqual(deleteRes.statusCode, 200);
+      assert.strictEqual(deleteRes.statusCode, 204);
     },
   );
 

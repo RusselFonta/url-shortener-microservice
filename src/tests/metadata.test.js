@@ -1,5 +1,4 @@
 import request from "supertest";
-import { pool } from "../config/db.js";
 import app from "../app.js";
 import test from "node:test";
 import assert from "node:assert";

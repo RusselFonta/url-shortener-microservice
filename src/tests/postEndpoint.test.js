@@ -1,5 +1,5 @@
 import request from "supertest";
-import { pool } from "../server.js";
+import { pool } from "../config/db.js";
 import app from "../app.js";
 import assert from "node:assert";
 import test from "node:test";
@@ -10,10 +10,10 @@ test("POST /links endpoint comprehensive test suite", async (TEP) => {
     async () => {
       const res = await request(app)
         .post("/links")
-        .send({ original_url: "https://youtube.com" });
+        .send({ target_url: "https://youtube.com" });
 
       assert.strictEqual(res.statusCode, 201);
-      assert.strictEqual(res.body.data.original_url, "https://youtube.com");
+      assert.strictEqual(res.body.data.target_url, "https://youtube.com");
       assert.ok(res.body.data.short_code, "a short code must be generated");
     },
   );
@@ -25,13 +25,13 @@ test("POST /links endpoint comprehensive test suite", async (TEP) => {
 
       const res1 = await request(app)
         .post("/links")
-        .send({ original_url: "https://google.com" });
+        .send({ target_url: "https://google.com" });
       const res2 = await request(app)
         .post("/links")
-        .send({ original_url: "https://github.com" });
+        .send({ target_url: "https://github.com" });
       const res3 = await request(app)
         .post("/links")
-        .send({ original_url: "https://youtube.com" });
+        .send({ target_url: "https://youtube.com" });
 
       const code1 = res1.body.data.short_code;
       const code2 = res2.body.data.short_code;
@@ -55,14 +55,14 @@ test("POST /links endpoint comprehensive test suite", async (TEP) => {
   await TEP.test("Should reject requests with invalid URLs (400)", async () => {
     const res = await request(app)
       .post("/links")
-      .send({ original_url: "not-a-valid-url" });
+      .send({ target_url: "not-a-valid-url" });
 
     assert.strictEqual(res.statusCode, 400);
     assert.strictEqual(res.body.success, false);
   });
 
   await TEP.test(
-    "Should reject requests with missing original_url field (400)",
+    "Should reject requests with missing target_url field (400)",
     async () => {
       const res = await request(app).post("/links").send({});
 

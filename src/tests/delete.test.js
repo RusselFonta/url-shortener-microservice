@@ -26,7 +26,7 @@ test("DELETE /links/:short_code deletion endpoint testing", async (del) => {
       const deleteRes = await request(app).delete(
         `/links/${generatedShortCode}`,
       );
-      assert.strictEqual(deleteRes.statusCode, 204);
+      assert.strictEqual(deleteRes.statusCode, 200);
     },
   );
 

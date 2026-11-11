@@ -1,4 +1,4 @@
-import { pool } from "../server.js";
+import { pool } from "../config/db.js";
 import app from "../app.js";
 import request from "supertest";
 import assert from "node:assert";
@@ -12,7 +12,7 @@ test("GET /links/:short_code/clicks.csv for csv streaming endpoint testing", asy
   await csv.test("creating a new short code for redirection", async () => {
     const res = await request(app)
       .post("/links")
-      .send({ original_url: testUrl });
+      .send({ target_url: testUrl });
 
     assert.strictEqual(res.statusCode, 201);
     generatedShortCode = res.body.data.short_code;
@@ -47,7 +47,7 @@ test("GET /links/:short_code/clicks.csv for csv streaming endpoint testing", asy
       // Verifying if the csv body contains the required columns
       assert.ok(res.text, "the response body must contain CSV data");
       assert.ok(
-        res.text.includes("clicked_at") || res.text.includes("referer"),
+        res.text.includes("clicked_at") || res.text.includes("referrer"),
       );
     },
   );
@@ -61,4 +61,5 @@ test("GET /links/:short_code/clicks.csv for csv streaming endpoint testing", asy
       assert.strictEqual(res.statusCode, 404);
     },
   );
-});
+})
+

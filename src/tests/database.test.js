@@ -1,8 +1,8 @@
-import { pool } from "../server.js";
+import { pool } from "../config/db.js";
 import assert from "node:assert";
 import test from "node:test";
 
-test(" Database Layer & Pool Integration Test Suite", async (dbTest) => {
+test("Database Layer & Pool Integration Test Suite", async (dbTest) => {
   await dbTest.test(
     "Should successfully connect and execute a basic query",
     async () => {
@@ -32,13 +32,13 @@ test(" Database Layer & Pool Integration Test Suite", async (dbTest) => {
 
       try {
         await client.query(
-          "INSERT INTO links (short_code, original_url) VALUES ($1, $2) ON CONFLICT (short_code) DO NOTHING",
+          "INSERT INTO links (short_code, target_url) VALUES ($1, $2) ON CONFLICT (short_code) DO NOTHING",
           [testCode, testUrl],
         );
 
         await assert.rejects(async () => {
           await client.query(
-            "INSERT INTO links (short_code, original_url) VALUES ($1, $2)",
+            "INSERT INTO links (short_code, target_url) VALUES ($1, $2)",
             [testCode, "https://github.com"],
           );
         }, "Database must reject duplicate short codes");
@@ -63,7 +63,7 @@ test(" Database Layer & Pool Integration Test Suite", async (dbTest) => {
       try {
         // Insert setup link
         await client.query(
-          "INSERT INTO links (short_code, original_url, click_count) VALUES ($1, $2, $3)",
+          "INSERT INTO links (short_code, target_url, click_count) VALUES ($1, $2, $3)",
           [testCode, testUrl, 0],
         );
 

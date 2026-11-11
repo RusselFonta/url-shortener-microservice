@@ -1,8 +1,8 @@
 import request from "supertest";
-import { pool } from "../server.js";
+import { pool } from "../config/db.js";
 import app from "../app.js";
-import assert from "node:assert";
 import test from "node:test";
+import assert from "node:assert";
 
 test("GET /:short_code redirection and telemetry test suite", async (red) => {
   let generatedShortCode;
@@ -12,7 +12,7 @@ test("GET /:short_code redirection and telemetry test suite", async (red) => {
   await red.test("Setup: Create a link for redirection testing", async () => {
     const res = await request(app)
       .post("/links")
-      .send({ original_url: testUrl });
+      .send({ target_url: testUrl });
 
     assert.strictEqual(res.statusCode, 201);
     generatedShortCode = res.body.data.short_code;

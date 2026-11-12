@@ -1,6 +1,7 @@
 import request from "supertest";
+import { pool } from "../config/db.js";
 import app from "../app.js";
-import test from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert";
 
 test("GET /:short_code redirection and telemetry test suite", async (red) => {
@@ -50,4 +51,9 @@ test("GET /:short_code redirection and telemetry test suite", async (red) => {
     assert.strictEqual(res.statusCode, 404);
     assert.ok(res.body.message, "A 404 error message should be returned");
   });
+});
+
+// cleaning the database connection pool to stop test hanging
+after(async () => {
+  await pool.end();
 });

@@ -1,6 +1,7 @@
+import { pool } from "../config/db.js";
 import request from "supertest";
 import app from "../app.js";
-import test from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert";
 
 test("DELETE /links/:short_code deletion endpoint testing", async (del) => {
@@ -25,7 +26,7 @@ test("DELETE /links/:short_code deletion endpoint testing", async (del) => {
       const deleteRes = await request(app).delete(
         `/links/${generatedShortCode}`,
       );
-      assert.strictEqual(deleteRes.statusCode, 200);
+      assert.strictEqual(deleteRes.statusCode, 204);
     },
   );
 
@@ -46,4 +47,9 @@ test("DELETE /links/:short_code deletion endpoint testing", async (del) => {
       assert.strictEqual(notFoundRes.statusCode, 404);
     },
   );
+});
+
+// cleaning the database connection pool to stop test hanging
+after(async () => {
+  await pool.end();
 });

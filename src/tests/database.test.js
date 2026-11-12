@@ -1,6 +1,6 @@
 import { pool } from "../config/db.js";
 import assert from "node:assert";
-import test from "node:test";
+import { test, after } from "node:test";
 
 test("Database Layer & Pool Integration Test Suite", async (dbTest) => {
   await dbTest.test(
@@ -86,4 +86,9 @@ test("Database Layer & Pool Integration Test Suite", async (dbTest) => {
       }
     },
   );
+});
+
+// Clean up database connection pool so tests don't hang
+after(async () => {
+  await pool.end();
 });

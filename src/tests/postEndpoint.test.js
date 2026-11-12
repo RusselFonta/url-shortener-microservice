@@ -1,7 +1,8 @@
 import request from "supertest";
+import { pool } from "../config/db.js";
 import app from "../app.js";
 import assert from "node:assert";
-import test from "node:test";
+import { test, after } from "node:test";
 
 test("POST /links endpoint comprehensive test suite", async (TEP) => {
   await TEP.test(
@@ -69,4 +70,9 @@ test("POST /links endpoint comprehensive test suite", async (TEP) => {
       assert.strictEqual(res.body.success, false);
     },
   );
+});
+
+// cleaning the database connection pool to stop test hanging
+after(async () => {
+  await pool.end();
 });

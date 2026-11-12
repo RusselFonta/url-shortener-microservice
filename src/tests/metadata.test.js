@@ -1,6 +1,7 @@
 import request from "supertest";
+import { pool } from "../config/db.js";
 import app from "../app.js";
-import test from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert";
 
 test("GET /links/:short_code metadata endpoint testing", async (meta) => {
@@ -40,4 +41,9 @@ test("GET /links/:short_code metadata endpoint testing", async (meta) => {
       assert.strictEqual(res.statusCode, 404);
     },
   );
+});
+
+// cleaning the database connection pool to stop test hanging
+after(async () => {
+  await pool.end();
 });

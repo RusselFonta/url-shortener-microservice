@@ -1,7 +1,8 @@
+import { pool } from "../config/db.js";
 import app from "../app.js";
 import request from "supertest";
 import assert from "node:assert";
-import test from "node:test";
+import { test, after } from "node:test";
 
 test("GET /links/:short_code/clicks.csv for csv streaming endpoint testing", async (csv) => {
   let generatedShortCode;
@@ -58,4 +59,8 @@ test("GET /links/:short_code/clicks.csv for csv streaming endpoint testing", asy
       assert.strictEqual(res.statusCode, 404);
     },
   );
+});
+
+after(async () => {
+  await pool.end();
 });

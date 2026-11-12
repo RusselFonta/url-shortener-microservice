@@ -23,6 +23,16 @@ CREATE TABLE IF NOT EXISTS links (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
+DO $$
+BEGIN 
+IF EXISTS (
+SELECT 1 FROM information_schema.columns
+WHERE table_name = 'links' AND column_name = 'original_url'
+)THEN
+ALTER TABLE links RENAME COLUMN original_url TO target_url;
+END IF;
+END $$
+
 CREATE TABLE IF NOT EXISTS click_log (
     id BIGSERIAL PRIMARY KEY,
     link_id BIGINT NOT NULL REFERENCES links(id) ON DELETE CASCADE,

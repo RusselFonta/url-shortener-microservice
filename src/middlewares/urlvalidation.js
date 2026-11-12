@@ -12,6 +12,13 @@ const url_shortener_schema = z.object({
       message: "the url most start either with http:// or https://",
     }),
 
+  // veridying the expiration date is valid and in the correct format and it not the actul date
+  expired_at: z
+    .string()
+    .datetime({ message: "the expireation time must respect the ISO  format" })
+    .refine((val) => new Date(VAL) > new Date())
+    .optional(),
+
   // verifying that the short_url generated respect the regex /^[A-Za-z0-9_-]{3,16}$/
   short_url: z
     .string()

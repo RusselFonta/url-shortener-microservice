@@ -26,7 +26,24 @@ export const url_generator = {
         });
       }
 
-      const short_code = crypto.randomBytes(4).toString("hex");
+      
+     let short_code = code
+
+     if(short_code){
+     const query_select= "SELECT id FROM links WHERE short_url = $1"
+     const result = await pool.query(query_select, [short_code])
+     
+     if(result.rows.length > 0){
+      return res.status(409).json({
+        status: "failed",
+        success: false,
+        message: 'the vanity code has already been used'
+      })
+     }
+
+     }else{
+      short_code = crypto.randomBytes(4).toString("hex")
+     }
 
       const querytext = `
                 INSERT INTO links (target_url, short_code, click_count, created_at) 

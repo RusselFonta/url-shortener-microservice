@@ -16,7 +16,7 @@ const url_shortener_schema = z.object({
   expired_at: z
     .string()
     .datetime({ message: "the expireation time must respect the ISO  format" })
-    .refine((val) => new Date(VAL) > new Date())
+    .refine((val) => new Date(val) > new Date())
     .optional(),
 
   // verifying that the short_url generated respect the regex /^[A-Za-z0-9_-]{3,16}$/

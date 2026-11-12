@@ -23,15 +23,16 @@ CREATE TABLE IF NOT EXISTS links (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
+-- Safe migration: rename original_url to target_url if upgrading an older DB
 DO $$
 BEGIN 
-IF EXISTS (
-SELECT 1 FROM information_schema.columns
-WHERE table_name = 'links' AND column_name = 'original_url'
-)THEN
-ALTER TABLE links RENAME COLUMN original_url TO target_url;
-END IF;
-END $$
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'links' AND column_name = 'original_url'
+    ) THEN
+        ALTER TABLE links RENAME COLUMN original_url TO target_url;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS click_log (
     id BIGSERIAL PRIMARY KEY,
@@ -51,8 +52,8 @@ async function initDB() {
   try {
     await client.connect();
     console.log("A successful connection was established with the database");
-    await client.query(createTablesQuery);
-    console.log("The required tables are created with success!");
+    await client.query(createTablesQuery); // Matches the variable name above
+    console.log("The required tables and migrations were applied with success!");
   } catch (err) {
     console.error("Error:", err.message);
   } finally {

@@ -17,7 +17,7 @@ export const url_generator = {
   // 1. Generate short URL (POST /shorten)
   short_url: async (req, res) => {
     try {
-      const { target_url, code , expired_at} = req.body;
+      const { target_url, code, expired_at } = req.body;
 
       if (!target_url) {
         return res.status(400).json({
@@ -26,31 +26,29 @@ export const url_generator = {
         });
       }
 
-    
-     let short_code = code
+      let short_code = code;
 
-     if(short_code){
-     const query_select= "SELECT id FROM links WHERE short_url = $1"
-     const result = await pool.query(query_select, [short_code])
-     
-     if(result.rows.length > 0){
-      return res.status(409).json({
-        status: "failed",
-        success: false,
-        message: 'the vanity code has already been used'
-      })
-     }
+      if (short_code) {
+        const query_select = "SELECT id FROM links WHERE short_code = $1";
+        const result = await pool.query(query_select, [short_code]);
 
-     }else{
-      short_code = crypto.randomBytes(4).toString("hex")
-     }
+        if (result.rows.length > 0) {
+          return res.status(409).json({
+            status: "failed",
+            success: false,
+            message: "the vanity code has already been used",
+          });
+        }
+      } else {
+        short_code = crypto.randomBytes(4).toString("hex");
+      }
 
       const querytext = `
-                INSERT INTO links (target_url, short_code, click_count, created_at) 
-                VALUES ($1, $2, 0, NOW()) 
-                RETURNING id, target_url, short_code, click_count, created_at;
-            `;
-      const values = [target_url, short_code];
+        INSERT INTO links (target_url, short_code, click_count, expired_at, created_at) 
+        VALUES ($1, $2, 0, $3, NOW()) 
+        RETURNING id, target_url, short_code, click_count, expired_at, created_at;
+      `;
+      const values = [target_url, short_code, expired_at || null];
 
       const output = await pool.query(querytext, values);
       const record_url = output.rows[0];
@@ -68,6 +66,7 @@ export const url_generator = {
           shorten_url: generated_url,
           click_count: record_url.click_count,
           created_at: record_url.created_at,
+          expired_at: record_url.expired_at,
         },
       });
     } catch (err) {
@@ -90,10 +89,10 @@ export const url_generator = {
 
       await client.query("BEGIN");
       const selectQuery = `
-                SELECT id, target_url, is_active, expired_at 
-                FROM links 
-                WHERE short_code = $1;
-            `;
+        SELECT id, target_url, is_active, expired_at 
+        FROM links 
+        WHERE short_code = $1;
+      `;
       const output = await client.query(selectQuery, [short_code]);
 
       if (output.rows.length === 0) {
@@ -126,16 +125,16 @@ export const url_generator = {
       }
 
       const update_query = `
-                UPDATE links 
-                SET click_count = click_count + 1 
-                WHERE short_code = $1;
-            `;
+        UPDATE links 
+        SET click_count = click_count + 1 
+        WHERE short_code = $1;
+      `;
       await client.query(update_query, [short_code]);
 
       const logQuery = `
-                INSERT INTO click_log (link_id, referrer, user_agent) 
-                VALUES ($1, $2, $3);
-            `;
+        INSERT INTO click_log (link_id, referrer, user_agent) 
+        VALUES ($1, $2, $3);
+      `;
       await client.query(logQuery, [
         result.id,
         req.get("referrer") || req.get("referer") || null,
@@ -167,20 +166,19 @@ export const getAnalitics = {
     try {
       const { short_code } = req.params;
       const limit_val = parseInt(req.query.limit, 10) || 50;
-      const after_val = parseInt(req.query.after, 10) || 0;
+      const after_val = req.query.after ? parseInt(req.query.after, 10) : null;
 
       if (
         isNaN(limit_val) ||
         limit_val < 1 ||
         limit_val > 100 ||
-        isNaN(after_val) ||
-        after_val < 0
+        (after_val !== null && (isNaN(after_val) || after_val < 0))
       ) {
         return res.status(400).json({
           status: "failed",
           success: false,
           message:
-            "An error occurred during the pagination process the pagin limit must be 1-100 and after must be >= 0",
+            "An error occurred during the pagination process the pagination limit must be 1-100 and after must be >= 0",
         });
       }
 
@@ -191,19 +189,26 @@ export const getAnalitics = {
         return res.status(404).json({
           status: "failed",
           success: false,
-          message: "the short code wasn't found ",
+          message: "the short code wasn't found",
         });
       }
 
       const link_id = links_result.rows[0].id;
 
-      const query_select = `SELECT id, clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1 AND id > $2 ORDER BY id DESC LIMIT $3`;
-      const click_result = await pool.query(query_select, [
-        link_id,
-        after_val,
-        limit_val,
-      ]);
+      let query_select = `SELECT id, clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1`;
+      const params_query = [link_id];
 
+      if (after_val !== null) {
+        query_select += ` AND id < $2`;
+        params_query.push(after_val);
+        query_select += ` ORDER BY id DESC LIMIT $3`;
+        params_query.push(limit_val);
+      } else {
+        query_select += ` ORDER BY id DESC LIMIT $2`;
+        params_query.push(limit_val);
+      }
+
+      const click_result = await pool.query(query_select, params_query);
       const data = click_result.rows;
       const next_cursor = data.length > 0 ? data[data.length - 1].id : null;
 
@@ -276,12 +281,12 @@ export const getAnalitics = {
 
       while (hasMore_data) {
         const query_select = `
-                    SELECT id, clicked_at, referrer, user_agent 
-                    FROM click_log 
-                    WHERE link_id = $1 AND id > $2 
-                    ORDER BY id ASC 
-                    LIMIT $3;
-                `;
+          SELECT id, clicked_at, referrer, user_agent 
+          FROM click_log 
+          WHERE link_id = $1 AND id > $2 
+          ORDER BY id ASC 
+          LIMIT $3;
+        `;
         const data = [linkID, last_id, batch_size];
         const output = await pool.query(query_select, data);
         const db_data = output.rows;
@@ -313,13 +318,12 @@ export const getAnalitics = {
     }
   },
 
-  // Deletion endpoint
+  // Deletion endpoint (Returns 204 No Content)
   deleteUrl: async (req, res) => {
     try {
       const { short_code } = req.params;
-      const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id, short_code, target_url;`;
-      const del_code = [short_code];
-      const del_result = await pool.query(del_query, del_code);
+      const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id;`;
+      const del_result = await pool.query(del_query, [short_code]);
 
       if (del_result.rows.length === 0) {
         return res.status(404).json({
@@ -328,12 +332,7 @@ export const getAnalitics = {
         });
       }
 
-      return res.status(200).json({
-        status: "Passed",
-        success: true,
-        message:
-          "The short code was deleted with related id , short_code and target_url",
-      });
+      return res.status(204).send();
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
       return res.status(500).json({

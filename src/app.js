@@ -30,13 +30,11 @@ app.get("/health", async (req, res) => {
     logger.info("Health check endpoint accessed");
     await pool.query("SELECT 1");
 
-    return res
-      .status(200)
-      .json({
-        status: "Success",
-        database: "connected",
-        message: "URL shortener is running",
-      });
+    return res.status(200).json({
+      status: "Success",
+      database: "connected",
+      message: "URL shortener is running",
+    });
   } catch (err) {
     logger.error(`Health check failed: ${err.message}`);
     return res.status(503).json({

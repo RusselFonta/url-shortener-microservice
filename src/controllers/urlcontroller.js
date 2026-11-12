@@ -17,7 +17,7 @@ export const url_generator = {
   // 1. Generate short URL (POST /shorten)
   short_url: async (req, res) => {
     try {
-      const { target_url } = req.body;
+      const { target_url, code , expired_at} = req.body;
 
       if (!target_url) {
         return res.status(400).json({
@@ -26,7 +26,7 @@ export const url_generator = {
         });
       }
 
-      
+    
      let short_code = code
 
      if(short_code){

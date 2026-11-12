@@ -28,17 +28,21 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get("/health", async (req, res) => {
   try {
     logger.info("Health check endpoint accessed");
-    await pool.query('SELECT 1');
-    
+    await pool.query("SELECT 1");
+
     return res
       .status(200)
-      .json({ status: "Success", database: "connected", message: "URL shortener is running" });
+      .json({
+        status: "Success",
+        database: "connected",
+        message: "URL shortener is running",
+      });
   } catch (err) {
     logger.error(`Health check failed: ${err.message}`);
     return res.status(503).json({
-      status: 'failed',
+      status: "failed",
       success: false,
-      message: "The connection with the database failed"
+      message: "The connection with the database failed",
     });
   }
 });

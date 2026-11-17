@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 dotenv.config();
 const { Client } = pkg;
 
-// Automatically detect local/CI environments to toggle SSL
 const isLocal = process.env.DATABASE_URL?.includes("localhost") || process.env.DATABASE_URL?.includes("127.0.0.1");
 
 const client = new Client({
@@ -23,7 +22,7 @@ CREATE TABLE IF NOT EXISTS links (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
--- Safe migration: rename original_url to target_url if upgrading an older DB
+-- Safe migration block
 DO $$
 BEGIN 
     IF EXISTS (
@@ -32,11 +31,13 @@ BEGIN
     ) THEN
         ALTER TABLE links RENAME COLUMN original_url TO target_url;
     END IF;
-   IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'links' AND  column_name = 'expired_at'
-    )THEN
-    ALTER TABLE links RENAME COLUMN expired_at TO expires_at
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'links' AND column_name = 'expired_at'
+    ) THEN
+        ALTER TABLE links RENAME COLUMN expired_at TO expires_at;
+    END IF;
 END $$;
 
 CREATE TABLE IF NOT EXISTS click_log (
@@ -47,7 +48,6 @@ CREATE TABLE IF NOT EXISTS click_log (
     user_agent TEXT
 );
 
--- Indexes (PostgreSQL ignores these if they already exist)
 CREATE INDEX IF NOT EXISTS idx_click_log_keyset ON click_log(clicked_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_click_log_link_id ON click_log(link_id);
 CREATE INDEX IF NOT EXISTS idx_click_log_link_id_clicked ON click_log(link_id, clicked_at DESC, id DESC);
@@ -61,6 +61,7 @@ async function initDB() {
     console.log("The required tables and migrations were applied with success!");
   } catch (err) {
     console.error("Error:", err.message);
+    process.exit(1);
   } finally {
     await client.end();
   }

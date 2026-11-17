@@ -4,20 +4,29 @@ import { Transform } from "node:stream";
 import logger from "../config/logger.js";
 
 export const checkController = {
-  getHealth: (_req, res) => {
-    res.status(200).json({
-      status: "success",
-      message: "The server is healthy",
-      timestamp: new Date().toISOString(),
-    });
+  getHealth: async (_req, res) => {
+    try {
+      await pool.query("SELECT 1");
+      return res.status(200).json({
+        status: "success",
+        message: "The server is healthy",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
+      return res.status(503).json({
+        status: "failed",
+        message: "Database connection failed",
+      });
+    }
   },
 };
 
 export const url_generator = {
-  // 1. Generate short URL (POST /shorten)
+  // 1. Generate short URL (POST /links)
   short_url: async (req, res) => {
     try {
-      const { target_url, code, expired_at } = req.body;
+      const { target_url, code, expires_at } = req.body;
 
       if (!target_url) {
         return res.status(400).json({
@@ -26,29 +35,14 @@ export const url_generator = {
         });
       }
 
-      let short_code = code;
-
-      if (short_code) {
-        const query_select = "SELECT id FROM links WHERE short_code = $1";
-        const result = await pool.query(query_select, [short_code]);
-
-        if (result.rows.length > 0) {
-          return res.status(409).json({
-            status: "failed",
-            success: false,
-            message: "the vanity code has already been used",
-          });
-        }
-      } else {
-        short_code = crypto.randomBytes(4).toString("hex");
-      }
+      let short_code = code || crypto.randomBytes(4).toString("hex");
 
       const querytext = `
-        INSERT INTO links (target_url, short_code, click_count, expired_at, created_at) 
+        INSERT INTO links (target_url, short_code, click_count, expires_at, created_at) 
         VALUES ($1, $2, 0, $3, NOW()) 
-        RETURNING id, target_url, short_code, click_count, expired_at, created_at;
+        RETURNING id, target_url, short_code, click_count, expires_at, created_at;
       `;
-      const values = [target_url, short_code, expired_at || null];
+      const values = [target_url, short_code, expires_at || null];
 
       const output = await pool.query(querytext, values);
       const record_url = output.rows[0];
@@ -66,16 +60,24 @@ export const url_generator = {
           shorten_url: generated_url,
           click_count: record_url.click_count,
           created_at: record_url.created_at,
-          expired_at: record_url.expires_at,
+          expires_at: record_url.expires_at,
         },
       });
     } catch (err) {
+      // Catch PostgreSQL unique_violation error code for duplicate vanity codes
+      if (err.code === "23505") {
+        return res.status(409).json({
+          status: "failed",
+          success: false,
+          message: "The vanity code has already been used",
+        });
+      }
+
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
       return res.status(500).json({
         status: "failed",
         success: false,
-        message: "An error occurred in your backend",
-        error: err.message,
+        message: "An internal server error occurred",
       });
     }
   },
@@ -89,7 +91,7 @@ export const url_generator = {
 
       await client.query("BEGIN");
       const selectQuery = `
-        SELECT id, target_url, is_active, expired_at 
+        SELECT id, target_url, is_active, expires_at 
         FROM links 
         WHERE short_code = $1;
       `;
@@ -108,14 +110,14 @@ export const url_generator = {
 
       if (!result.is_active) {
         await client.query("ROLLBACK");
-        return res.status(400).json({
+        return res.status(404).json({
           status: "failed",
           success: false,
           message: "The short url is not active",
         });
       }
 
-      if (result.expired_at && new Date() > new Date(result.expired_at)) {
+      if (result.expires_at && new Date() > new Date(result.expires_at)) {
         await client.query("ROLLBACK");
         return res.status(410).json({
           status: "failed",
@@ -151,7 +153,6 @@ export const url_generator = {
         status: "failed",
         success: false,
         message: "An error occurred during redirection",
-        error: err.message,
       });
     } finally {
       client.release();
@@ -161,7 +162,6 @@ export const url_generator = {
 
 // Keyset Pagination, CSV Streaming, Deletion, and Metadata
 export const getAnalitics = {
-  // pagination
   get_clicks: async (req, res) => {
     try {
       const { short_code } = req.params;
@@ -177,8 +177,7 @@ export const getAnalitics = {
         return res.status(400).json({
           status: "failed",
           success: false,
-          message:
-            "An error occurred during the pagination process the pagination limit must be 1-100 and after must be >= 0",
+          message: "Pagination limit must be 1-100 and after must be >= 0",
         });
       }
 
@@ -189,7 +188,7 @@ export const getAnalitics = {
         return res.status(404).json({
           status: "failed",
           success: false,
-          message: "the short code wasn't found",
+          message: "The short code wasn't found",
         });
       }
 
@@ -228,7 +227,7 @@ export const getAnalitics = {
       return res.status(500).json({
         status: "failed",
         success: false,
-        message: "an error occured while retrieving click log",
+        message: "An error occurred while retrieving click logs",
       });
     }
   },
@@ -257,16 +256,22 @@ export const getAnalitics = {
 
       res.write("id,clicked_at,referrer,user_agent\n");
 
+      // Formula injection neutralization helper
+      const sanitizeCell = (val) => {
+        if (!val) return '""';
+        let stringVal = String(val);
+        if (/^[=+\-@\t\r]/.test(stringVal)) {
+          stringVal = `'${stringVal}`;
+        }
+        return `"${stringVal.replace(/"/g, '""')}"`;
+      };
+
       const csv_transformer = new Transform({
         objectMode: true,
         transform(row, encoding, callback) {
           const clickedAt = new Date(row.clicked_at).toISOString();
-          const referrer = row.referrer
-            ? `"${row.referrer.replace(/"/g, '""')}"`
-            : '""';
-          const userAgent = row.user_agent
-            ? `"${row.user_agent.replace(/"/g, '""')}"`
-            : '""';
+          const referrer = sanitizeCell(row.referrer);
+          const userAgent = sanitizeCell(row.user_agent);
 
           const csv_line = `${row.id},${clickedAt},${referrer},${userAgent}\n`;
           callback(null, csv_line);
@@ -312,13 +317,11 @@ export const getAnalitics = {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
       return res.status(500).json({
         success: false,
-        message: "An error occurred during the exportation process of the csv",
-        error: err.message,
+        message: "An error occurred during CSV export",
       });
     }
   },
 
-  // Deletion endpoint (Returns 204 No Content)
   deleteUrl: async (req, res) => {
     try {
       const { short_code } = req.params;
@@ -338,19 +341,16 @@ export const getAnalitics = {
       return res.status(500).json({
         status: "failed",
         success: false,
-        message: "An error occured during the delection process",
-        error: err.message,
+        message: "An error occurred during deletion",
       });
     }
   },
 
-  // Metadata endpoint
   metadata_url: async (req, res) => {
     try {
       const { short_code } = req.params;
-      const metadata_query = `SELECT id, target_url, short_code, click_count, is_active, created_at, expired_at FROM links WHERE short_code = $1;`;
-      const metadata_code = [short_code];
-      const metadata_result = await pool.query(metadata_query, metadata_code);
+      const metadata_query = `SELECT id, target_url, short_code, click_count, is_active, created_at, expires_at FROM links WHERE short_code = $1;`;
+      const metadata_result = await pool.query(metadata_query, [short_code]);
 
       if (metadata_result.rows.length === 0) {
         return res.status(404).json({
@@ -372,17 +372,15 @@ export const getAnalitics = {
           click_count: metadata_links.click_count,
           is_active: metadata_links.is_active,
           created_at: metadata_links.created_at,
-          expired_at: metadata_links.expired_at,
+          expires_at: metadata_links.expires_at,
         },
       });
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
       return res.status(500).json({
-        status: "Failed",
+        status: "failed",
         success: false,
-        message:
-          "An error occured in your backend during the retrieval of the links metadata",
-        error: err.message,
+        message: "An error occurred while retrieving metadata",
       });
     }
   },

@@ -66,7 +66,7 @@ export const url_generator = {
           shorten_url: generated_url,
           click_count: record_url.click_count,
           created_at: record_url.created_at,
-          expired_at: record_url.expired_at,
+          expired_at: record_url.expires_at,
         },
       });
     } catch (err) {

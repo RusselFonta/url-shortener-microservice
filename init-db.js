@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS links (
     short_code VARCHAR(16) UNIQUE NOT NULL,
     click_count BIGINT DEFAULT 0 NOT NULL CHECK (click_count >= 0),
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
-    expired_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -32,6 +32,11 @@ BEGIN
     ) THEN
         ALTER TABLE links RENAME COLUMN original_url TO target_url;
     END IF;
+   IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'links' AND  column_name = 'expired_at'
+    )THEN
+    ALTER TABLE links RENAME COLUMN expired_at TO expires_at
 END $$;
 
 CREATE TABLE IF NOT EXISTS click_log (
@@ -52,7 +57,7 @@ async function initDB() {
   try {
     await client.connect();
     console.log("A successful connection was established with the database");
-    await client.query(createTablesQuery); // Matches the variable name above
+    await client.query(createTablesQuery);
     console.log("The required tables and migrations were applied with success!");
   } catch (err) {
     console.error("Error:", err.message);

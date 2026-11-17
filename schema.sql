@@ -6,9 +6,10 @@ CREATE TABLE IF NOT EXISTS links (
     short_code VARCHAR(16) UNIQUE NOT NULL,
     click_count BIGINT DEFAULT 0 NOT NULL CHECK (click_count >= 0),
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
-    expired_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+
 
 CREATE TABLE IF NOT EXISTS click_log (
     id BIGSERIAL PRIMARY KEY,

@@ -1,3 +1,4 @@
+
 name: CI
 
 on:
@@ -13,16 +14,16 @@ concurrency:
 
 jobs:
   ci:
-    name: format, lint, typecheck, test
+    name: format, lint, test
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:18-alpine
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: url_app_user
-          POSTGRES_PASSWORD: fonta99
-          POSTGRES_DB: url_shortener
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: url_shortener_test
         ports:
           - 5432:5432
         options: >-
@@ -39,7 +40,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -50,8 +51,9 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      - name: Run tests & migrations
+      - name: Run tests and initialize test database
         env:
-          DATABASE_URL: postgresql://url_app_user:fonta99@localhost:5432/url_shortener
+          NODE_ENV: test
+          DATABASE_URL_TEST: postgresql://url_app_user:ci_test_password@localhost:5432/url_shortener_test
           PORT: 3000
         run: npm test

@@ -1,50 +1,53 @@
 import { z } from "zod";
 
 const url_shortener_schema = z.object({
-  // verify the url enter is a string and in the appropriate url standard (https;// and http:// )
   target_url: z
-    .string({ message: "the original url is required" })
+    .string({ message: "The original URL is required" })
     .url({
-      message:
-        "the url provided is not in the correct format ( http:// || https:// )",
+      message: "The URL provided is not in the correct format",
     })
     .refine((url) => url.startsWith("http://") || url.startsWith("https://"), {
-      message: "the url most start either with http:// or https://",
+      message: "The URL must start with http:// or https://",
     }),
 
-  // veridying the expiration date is valid and in the correct format and it not the actul date
-  expired_at: z
+  expires_at: z
     .string()
-    .datetime({ message: "the expireation time must respect the ISO  format" })
-    .refine((val) => new Date(val) > new Date())
+    .datetime({
+      message: "The expiration time must respect ISO 8601 format",
+    })
+    .refine((value) => new Date(value).getTime() > Date.now(), {
+      message: "The expiration date must be in the future",
+    })
     .optional(),
 
-  // verifying that the short_url generated respect the regex /^[A-Za-z0-9_-]{3,16}$/
+  // Validate custom short code.
   code: z
     .string()
     .regex(/^[A-Za-z0-9_-]{3,16}$/, {
-      message:
-        "the url generated must have a length of 3 to 16 and respect the provided regex",
+      message: "The short code must contain 3 to 16 valid characters",
     })
     .optional(),
 });
 
-//use middleware factory to responsibility seperation so that the all request are valide before reaching the controller
-
+// Middleware factory.
 const validation_middleware = (schema) => {
   return (req, res, next) => {
     try {
       req.body = schema.parse(req.body);
       next();
     } catch (error) {
-      const errorMessage = error.issues.map((e) => e.message);
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.issues.map((issue) => issue.message);
 
-      return res.status(400).json({
-        status: "Failed",
-        message: "the Validation failed",
-        success: false,
-        error: errorMessage,
-      });
+        return res.status(400).json({
+          status: "Failed",
+          message: "The validation failed",
+          success: false,
+          error: errorMessage,
+        });
+      }
+
+      return next(error);
     }
   };
 };

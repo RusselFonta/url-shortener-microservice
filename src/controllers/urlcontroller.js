@@ -3,6 +3,8 @@ import { pool } from "../config/db.js";
 import { Transform } from "node:stream";
 import logger from "../config/logger.js";
 
+const RESERVED_CODES = new Set(["links", "docs", "api-docs", "health"]);
+
 export const checkController = {
   getHealth: async (_req, res) => {
     try {
@@ -14,6 +16,7 @@ export const checkController = {
       });
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
+
       return res.status(503).json({
         status: "failed",
         message: "Database connection failed",
@@ -35,13 +38,29 @@ export const url_generator = {
         });
       }
 
-      let short_code = code || crypto.randomBytes(4).toString("hex");
+      // Reject reserved vanity codes (case-insensitive)
+      if (typeof code === "string" && RESERVED_CODES.has(code.toLowerCase())) {
+        return res.status(400).json({
+          status: "failed",
+          success: false,
+          message: "This short code is reserved and cannot be used",
+        });
+      }
+
+      const short_code = code || crypto.randomBytes(4).toString("hex");
 
       const querytext = `
-        INSERT INTO links (target_url, short_code, click_count, expires_at, created_at) 
-        VALUES ($1, $2, 0, $3, NOW()) 
+        INSERT INTO links (
+          target_url,
+          short_code,
+          click_count,
+          expires_at,
+          created_at
+        )
+        VALUES ($1, $2, 0, $3, NOW())
         RETURNING id, target_url, short_code, click_count, expires_at, created_at;
       `;
+
       const values = [target_url, short_code, expires_at || null];
 
       const output = await pool.query(querytext, values);
@@ -64,7 +83,7 @@ export const url_generator = {
         },
       });
     } catch (err) {
-      // Catch PostgreSQL unique_violation error code for duplicate vanity codes
+      // PostgreSQL unique_violation: duplicate vanity code
       if (err.code === "23505") {
         return res.status(409).json({
           status: "failed",
@@ -74,6 +93,7 @@ export const url_generator = {
       }
 
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
+
       return res.status(500).json({
         status: "failed",
         success: false,
@@ -88,18 +108,22 @@ export const url_generator = {
 
     try {
       client = await pool.connect();
+
       const { short_code } = req.params;
 
       await client.query("BEGIN");
+
       const selectQuery = `
-        SELECT id, target_url, is_active, expires_at 
-        FROM links 
+        SELECT id, target_url, is_active, expires_at
+        FROM links
         WHERE short_code = $1;
       `;
+
       const output = await client.query(selectQuery, [short_code]);
 
       if (output.rows.length === 0) {
         await client.query("ROLLBACK");
+
         return res.status(404).json({
           status: "failed",
           success: false,
@@ -111,6 +135,7 @@ export const url_generator = {
 
       if (!result.is_active) {
         await client.query("ROLLBACK");
+
         return res.status(404).json({
           status: "failed",
           success: false,
@@ -123,6 +148,7 @@ export const url_generator = {
         Date.now() >= new Date(result.expires_at).getTime()
       ) {
         await client.query("ROLLBACK");
+
         return res.status(410).json({
           status: "failed",
           success: false,
@@ -131,16 +157,18 @@ export const url_generator = {
       }
 
       const update_query = `
-        UPDATE links 
-        SET click_count = click_count + 1 
+        UPDATE links
+        SET click_count = click_count + 1
         WHERE short_code = $1;
       `;
+
       await client.query(update_query, [short_code]);
 
       const logQuery = `
-        INSERT INTO click_log (link_id, referrer, user_agent) 
+        INSERT INTO click_log (link_id, referrer, user_agent)
         VALUES ($1, $2, $3);
       `;
+
       await client.query(logQuery, [
         result.id,
         req.get("referrer") || req.get("referer") || null,
@@ -180,10 +208,26 @@ export const getAnalitics = {
     try {
       const { short_code } = req.params;
 
+      // Strict pagination input validation
       const raw_limit = req.query.limit;
       const raw_after = req.query.after;
-      const limit_val = raw_limit === undefined ? 50 : Number(raw_limit);
-      const after_val = raw_after === undefined ? null : Number(raw_after);
+
+      const isIntegerString = (value) =>
+        typeof value === "string" && /^\d+$/.test(value);
+
+      const limit_val =
+        raw_limit === undefined
+          ? 50
+          : isIntegerString(raw_limit)
+            ? Number(raw_limit)
+            : NaN;
+
+      const after_val =
+        raw_after === undefined
+          ? null
+          : isIntegerString(raw_after)
+            ? Number(raw_after)
+            : NaN;
 
       if (
         !Number.isSafeInteger(limit_val) ||
@@ -199,7 +243,12 @@ export const getAnalitics = {
         });
       }
 
-      const links_query = `SELECT id FROM links WHERE short_code = $1`;
+      const links_query = `
+        SELECT id
+        FROM links
+        WHERE short_code = $1;
+      `;
+
       const links_result = await pool.query(links_query, [short_code]);
 
       if (links_result.rows.length === 0) {
@@ -212,8 +261,11 @@ export const getAnalitics = {
 
       const link_id = links_result.rows[0].id;
 
-      let query_select = ` SELECT id, clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1
-`;
+      let query_select = `
+        SELECT id, clicked_at, referrer, user_agent
+        FROM click_log
+        WHERE link_id = $1
+      `;
 
       const params_query = [link_id];
 
@@ -223,6 +275,8 @@ export const getAnalitics = {
       }
 
       query_select += ` ORDER BY id DESC LIMIT $${params_query.length + 1}`;
+
+      // Fetch one extra row to determine whether another page exists
       params_query.push(limit_val + 1);
 
       const click_result = await pool.query(query_select, params_query);
@@ -236,16 +290,17 @@ export const getAnalitics = {
       return res.status(200).json({
         status: "success",
         success: true,
-        data: data,
+        data,
         pagination: {
           limit: limit_val,
           after: after_val,
-          next_cursor: next_cursor,
-          has_more: has_more,
+          next_cursor,
+          has_more,
         },
       });
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
+
       return res.status(500).json({
         status: "failed",
         success: false,
@@ -254,11 +309,17 @@ export const getAnalitics = {
     }
   },
 
+  // 3. CSV Export with Formula Injection Protection
   csv_log: async (req, res) => {
     try {
       const { short_code } = req.params;
 
-      const links_query = `SELECT id FROM links WHERE short_code = $1;`;
+      const links_query = `
+        SELECT id
+        FROM links
+        WHERE short_code = $1;
+      `;
+
       const links_result = await pool.query(links_query, [short_code]);
 
       if (links_result.rows.length === 0) {
@@ -278,26 +339,49 @@ export const getAnalitics = {
 
       res.write("id,clicked_at,referrer,user_agent\n");
 
-      // Formula injection neutralization helper
       const sanitizeCell = (val) => {
-        if (!val) return '""';
+        if (val === null || val === undefined) {
+          return '""';
+        }
+
         let stringVal = String(val);
+
         if (/^[=+\-@\t\r]/.test(stringVal)) {
           stringVal = `'${stringVal}`;
         }
+
         return `"${stringVal.replace(/"/g, '""')}"`;
       };
 
       const csv_transformer = new Transform({
         objectMode: true,
-        transform(row, encoding, callback) {
-          const clickedAt = new Date(row.clicked_at).toISOString();
-          const referrer = sanitizeCell(row.referrer);
-          const userAgent = sanitizeCell(row.user_agent);
 
-          const csv_line = `${row.id},${clickedAt},${referrer},${userAgent}\n`;
-          callback(null, csv_line);
+        transform(row, encoding, callback) {
+          try {
+            const clickedAt = new Date(row.clicked_at).toISOString();
+            const referrer = sanitizeCell(row.referrer);
+            const userAgent = sanitizeCell(row.user_agent);
+
+            const csv_line = `${row.id},${clickedAt},${referrer},${userAgent}\n`;
+
+            callback(null, csv_line);
+          } catch (err) {
+            callback(err);
+          }
         },
+      });
+
+      csv_transformer.on("error", (err) => {
+        logger.error(`CSV stream error: ${err.message}`);
+
+        if (!res.headersSent) {
+          res.status(500).json({
+            status: "failed",
+            message: "An error occurred during CSV export",
+          });
+        } else {
+          res.destroy(err);
+        }
       });
 
       csv_transformer.pipe(res);
@@ -308,13 +392,15 @@ export const getAnalitics = {
 
       while (hasMore_data) {
         const query_select = `
-          SELECT id, clicked_at, referrer, user_agent 
-          FROM click_log 
-          WHERE link_id = $1 AND id > $2 
-          ORDER BY id ASC 
+          SELECT id, clicked_at, referrer, user_agent
+          FROM click_log
+          WHERE link_id = $1 AND id > $2
+          ORDER BY id ASC
           LIMIT $3;
         `;
+
         const data = [linkID, last_id, batch_size];
+
         const output = await pool.query(query_select, data);
         const db_data = output.rows;
 
@@ -324,7 +410,11 @@ export const getAnalitics = {
         }
 
         for (const row of db_data) {
-          csv_transformer.write(row);
+          if (!csv_transformer.write(row)) {
+            await new Promise((resolve) =>
+              csv_transformer.once("drain", resolve),
+            );
+          }
         }
 
         last_id = db_data[db_data.length - 1].id;
@@ -337,17 +427,29 @@ export const getAnalitics = {
       csv_transformer.end();
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
-      return res.status(500).json({
-        success: false,
-        message: "An error occurred during CSV export",
-      });
+
+      if (!res.headersSent) {
+        return res.status(500).json({
+          success: false,
+          message: "An error occurred during CSV export",
+        });
+      }
+
+      return res.destroy(err);
     }
   },
 
+  // 4. Delete URL
   deleteUrl: async (req, res) => {
     try {
       const { short_code } = req.params;
-      const del_query = `DELETE FROM links WHERE short_code = $1 RETURNING id;`;
+
+      const del_query = `
+        DELETE FROM links
+        WHERE short_code = $1
+        RETURNING id;
+      `;
+
       const del_result = await pool.query(del_query, [short_code]);
 
       if (del_result.rows.length === 0) {
@@ -360,6 +462,7 @@ export const getAnalitics = {
       return res.status(204).send();
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
+
       return res.status(500).json({
         status: "failed",
         success: false,
@@ -368,10 +471,24 @@ export const getAnalitics = {
     }
   },
 
+  // 5. Retrieve URL Metadata
   metadata_url: async (req, res) => {
     try {
       const { short_code } = req.params;
-      const metadata_query = `SELECT id, target_url, short_code, click_count, is_active, created_at, expires_at FROM links WHERE short_code = $1;`;
+
+      const metadata_query = `
+        SELECT
+          id,
+          target_url,
+          short_code,
+          click_count,
+          is_active,
+          created_at,
+          expires_at
+        FROM links
+        WHERE short_code = $1;
+      `;
+
       const metadata_result = await pool.query(metadata_query, [short_code]);
 
       if (metadata_result.rows.length === 0) {
@@ -399,6 +516,7 @@ export const getAnalitics = {
       });
     } catch (err) {
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
+
       return res.status(500).json({
         status: "failed",
         success: false,

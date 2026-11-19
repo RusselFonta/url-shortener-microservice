@@ -22,7 +22,7 @@ app.use((req, res, next) => {
 const swaggerDocument = YAML.load("./swagger.yaml");
 
 // Serve Swagger UI at /api-docs
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health check route (Added 'async' so 'await' works correctly)
 app.get("/health", async (req, res) => {

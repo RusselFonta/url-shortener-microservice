@@ -1,4 +1,3 @@
-
 import pkg from "pg";
 import dotenv from "dotenv";
 
@@ -6,10 +5,26 @@ dotenv.config();
 
 const { Client } = pkg;
 
-const isLocal = process.env.DATABASE_URL?.includes("localhost") || process.env.DATABASE_URL?.includes("127.0.0.1");
+const isTest = process.env.NODE_ENV === "test";
+
+const databaseUrl = isTest ? process.env.DATABASE_URL_TEST : process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error( isTest ? "DATABASE_URL_TEST is required." : "DATABASE_URL is required." );
+}
+
+if (isTest && process.env.DATABASE_URL && databaseUrl === process.env.DATABASE_URL) {
+  throw new Error("Refusing to initialize the production database during tests.");
+}
+
+const parsedUrl = new URL(databaseUrl);
+
+const isLocal = ["localhost", "127.0.0.1", "::1"].includes(
+  parsedUrl.hostname
+);
 
 const client = new Client({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   ssl: isLocal ? false : { rejectUnauthorized: false },
 });
 
@@ -29,7 +44,8 @@ const createTablesQuery = `
     IF EXISTS (
       SELECT 1
       FROM information_schema.columns
-      WHERE table_name = 'links'
+      WHERE table_schema = current_schema()
+        AND table_name = 'links'
         AND column_name = 'original_url'
     ) THEN
       ALTER TABLE links
@@ -39,7 +55,8 @@ const createTablesQuery = `
     IF EXISTS (
       SELECT 1
       FROM information_schema.columns
-      WHERE table_name = 'links'
+      WHERE table_schema = current_schema()
+        AND table_name = 'links'
         AND column_name = 'expired_at'
     ) THEN
       ALTER TABLE links
@@ -63,7 +80,8 @@ const createTablesQuery = `
 
   CREATE TABLE IF NOT EXISTS click_log (
     id BIGSERIAL PRIMARY KEY,
-    link_id BIGINT NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    link_id BIGINT NOT NULL
+      REFERENCES links(id) ON DELETE CASCADE,
     clicked_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
     referrer TEXT,
     user_agent TEXT
@@ -78,7 +96,6 @@ const createTablesQuery = `
   CREATE INDEX IF NOT EXISTS idx_click_log_link_id_clicked
   ON click_log(link_id, clicked_at DESC, id DESC);
 
-  -- Supports pagination ordered by id DESC for a specific link
   CREATE INDEX IF NOT EXISTS idx_click_log_link_id_id
   ON click_log(link_id, id DESC);
 `;
@@ -87,16 +104,16 @@ async function initDB() {
   try {
     await client.connect();
 
-    console.log("A successful connection was established with the database");
+    console.log("Successfully connected to PostgreSQL.");
 
     await client.query(createTablesQuery);
 
-    console.log("The required tables and migrations were applied successfully!");
-  } catch (err) {
-    console.error("Database initialization error:", err.message);
+    console.log("Tables, constraints, indexes and migrations applied successfully.");
+  } catch (error) {
+    console.error("Database initialization error:", error.message);
     process.exitCode = 1;
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
   }
 }
 

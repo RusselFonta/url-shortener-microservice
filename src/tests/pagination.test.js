@@ -4,10 +4,13 @@ import { test, after } from "node:test";
 import assert from "node:assert";
 import { pool } from "../config/db.js";
 
+let shortCode;
+let linkId;
+
+const expectedClickIds = [];
+
 test("GET /links/:short_code/clicks keyset pagination test suite", async (pageTest) => {
-  let shortCode;
-  let linkId;
-  const testUrl = "https://youtude.com";
+  const testUrl = "https://youtube.com";
 
   await pageTest.test("Setup: Create link and seed click logs", async () => {
     const createRes = await request(app)
@@ -15,72 +18,137 @@ test("GET /links/:short_code/clicks keyset pagination test suite", async (pageTe
       .send({ target_url: testUrl });
 
     assert.strictEqual(createRes.statusCode, 201);
+
     shortCode = createRes.body.data.short_code;
     linkId = createRes.body.data.id;
 
-    // Seed multiple click logs directly for reliable cursor testing
+    assert.ok(shortCode);
+    assert.ok(linkId);
+
+    // Seed five click records.
     for (let i = 1; i <= 5; i++) {
-      await pool.query(
-        "INSERT INTO click_log (link_id, referrer, user_agent) VALUES ($1, $2, $3)",
+      const result = await pool.query(
+        `INSERT INTO click_log (link_id, referrer, user_agent)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
         [linkId, `https://ref-${i}.com`, `Agent-${i}`],
       );
+
+      expectedClickIds.push(Number(result.rows[0].id));
     }
   });
 
-  // 2. Test fetching the first page with a limit
   await pageTest.test(
-    "Should retrieve first page of clicks with correct limit and next_cursor",
+    "Should retrieve first page with correct limit and next_cursor",
     async () => {
       const res = await request(app).get(`/links/${shortCode}/clicks?limit=2`);
 
       assert.strictEqual(res.statusCode, 200);
       assert.strictEqual(res.body.status, "success");
-      assert.strictEqual(
-        res.body.data.length,
-        2,
-        "Should respect pagination limit of 2",
-      );
-      assert.ok(
-        res.body.pagination.next_cursor,
-        "Should provide a next_cursor for subsequent requests",
-      );
+      assert.strictEqual(res.body.data.length, 2);
+      assert.ok(res.body.pagination.next_cursor);
       assert.strictEqual(res.body.pagination.has_more, true);
     },
   );
 
-  // 3. Test fetching subquence pages using after
   await pageTest.test(
-    "Should retrieve next page using after cursor parameter",
+    "Should retrieve the next page using the after cursor",
     async () => {
-      // First, fetch page 1 to grab the cursor
       const page1 = await request(app).get(
         `/links/${shortCode}/clicks?limit=2`,
       );
+
       const cursor = page1.body.pagination.next_cursor;
 
-      // Fetch page 2 using the cursor
       const page2 = await request(app).get(
         `/links/${shortCode}/clicks?limit=2&after=${cursor}`,
       );
 
       assert.strictEqual(page2.statusCode, 200);
-      assert.ok(page2.body.data.length > 0, "Should return subsequent records");
+      assert.strictEqual(page2.body.data.length, 2);
     },
   );
 
-  // 4. Test invalid parameters handling
+  await pageTest.test(
+    "Should return every click record exactly once and omit next_cursor on the final page",
+    async () => {
+      const retrievedIds = [];
+      let cursor = null;
+      let finalPage;
+
+      while (true) {
+        const url = cursor
+          ? `/links/${shortCode}/clicks?limit=2&after=${cursor}`
+          : `/links/${shortCode}/clicks?limit=2`;
+
+        const res = await request(app).get(url);
+
+        assert.strictEqual(res.statusCode, 200);
+
+        for (const click of res.body.data) {
+          retrievedIds.push(Number(click.id));
+        }
+
+        finalPage = res.body;
+
+        if (!res.body.pagination.next_cursor) {
+          break;
+        }
+
+        cursor = res.body.pagination.next_cursor;
+      }
+
+      // All five seeded records must be returned.
+      assert.strictEqual(retrievedIds.length, expectedClickIds.length);
+
+      // No records should be duplicated.
+      assert.strictEqual(
+        new Set(retrievedIds).size,
+        retrievedIds.length,
+        "Pagination must not return duplicate click records",
+      );
+
+      // No records should be skipped.
+      assert.deepStrictEqual(
+        [...retrievedIds].sort((a, b) => a - b),
+        [...expectedClickIds].sort((a, b) => a - b),
+      );
+
+      // The final page must not have another cursor.
+      assert.ok(
+        !finalPage.pagination.next_cursor,
+        "The final page must not return a next_cursor",
+      );
+
+      assert.strictEqual(finalPage.pagination.has_more, false);
+    },
+  );
+
   await pageTest.test(
     "Should reject invalid limit parameters with 400",
     async () => {
-      const res = await request(app).get(
-        `/links/${shortCode}/clicks?limit=500`,
-      );
-      assert.strictEqual(res.statusCode, 400);
+      for (const invalidLimit of ["abc", "0", "500"]) {
+        const res = await request(app).get(
+          `/links/${shortCode}/clicks?limit=${invalidLimit}`,
+        );
+
+        assert.strictEqual(
+          res.statusCode,
+          400,
+          `Limit ${invalidLimit} should be rejected`,
+        );
+      }
     },
   );
 });
 
-// Clean up database connection pool so tests don't hang
+// Clean up test records and database connection.
 after(async () => {
-  await pool.end();
+  try {
+    if (shortCode) {
+      await pool.query("DELETE FROM links WHERE short_code = $1", [shortCode]);
+    }
+  } finally {
+    await pool.end();
+  }
 });

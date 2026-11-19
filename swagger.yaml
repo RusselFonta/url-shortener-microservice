@@ -1,10 +1,13 @@
+
 openapi: 3.0.0
+
 info:
   title: URL Shortener Microservice API
   version: 1.0.0
   description: High-performance URL shortener API built with Node.js, Express, and PostgreSQL, featuring atomic click tracking, keyset pagination, and CSV analytics.
+
 servers:
-  - url: https://ur-shortener-microservice.onrender.com
+  - url: https://url-shortener-microservice-ccia.onrender.com
     description: Production Server (Render)
   - url: http://localhost:3000
     description: Local development server
@@ -30,19 +33,21 @@ paths:
                 code:
                   type: string
                   example: my-custom-link
-                  description: Optional custom vanity short code (3-16 alphanumeric characters, dashes, or underscores)
+                  description: Optional custom vanity short code (3-16 alphanumeric characters, dashes, or underscores).
                 expires_at:
                   type: string
                   format: date-time
-                  example: 2027-01-01T00:00:00.000Z
-                  description: Optional ISO 8601 future expiration datetime
+                  example: "2027-01-01T00:00:00.000Z"
+                  description: Optional ISO 8601 future expiration datetime.
       responses:
-        '201':
-          description: Link successfully created
-        '400':
-          description: Validation failed (invalid URL, past expiry date, or malformed body)
-        '409':
-          description: Vanity code is already taken
+        "201":
+          description: Link successfully created.
+        "400":
+          description: Validation failed (invalid URL, past expiry date, or malformed body).
+        "409":
+          description: Vanity code is already taken.
+        "500":
+          description: Internal server error.
 
   /{short_code}:
     get:
@@ -55,17 +60,19 @@ paths:
           schema:
             type: string
       responses:
-        '302':
-          description: Successful redirection
-        '404':
-          description: Short code not found
-        '410':
-          description: Short code has expired or is inactive
+        "302":
+          description: Successful redirection.
+        "404":
+          description: Short code not found.
+        "410":
+          description: Short code has expired or is inactive.
+        "500":
+          description: Internal server error.
 
   /links/{short_code}:
     get:
       summary: Get link metadata
-      description: Retrieves metadata and statistics (like click count and status) for a specific short code.
+      description: Retrieves metadata and statistics, including click count and status, for a specific short code.
       parameters:
         - name: short_code
           in: path
@@ -73,10 +80,13 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: Metadata retrieved successfully
-        '404':
-          description: Short code not found
+        "200":
+          description: Metadata retrieved successfully.
+        "404":
+          description: Short code not found.
+        "500":
+          description: Internal server error.
+
     delete:
       summary: Delete a short link
       description: Removes the short link and cascades deletion to click logs. Returns no content on success.
@@ -87,10 +97,12 @@ paths:
           schema:
             type: string
       responses:
-        '204':
-          description: Link successfully deleted (No Content)
-        '404':
-          description: Short code not found
+        "204":
+          description: Link successfully deleted (No Content).
+        "404":
+          description: Short code not found.
+        "500":
+          description: Internal server error.
 
   /links/{short_code}/clicks:
     get:
@@ -110,26 +122,29 @@ paths:
             default: 50
             minimum: 1
             maximum: 100
-          description: Number of records to return (1-100)
+          description: Number of records to return (1-100).
         - name: after
           in: query
           required: false
           schema:
             type: integer
             default: 0
-          description: Cursor ID to fetch records after
+            minimum: 0
+          description: Cursor ID to fetch records after.
       responses:
-        '200':
-          description: Click logs page retrieved successfully
-        '400':
-          description: Invalid pagination parameters
-        '404':
-          description: Short code not found
+        "200":
+          description: Click logs page retrieved successfully.
+        "400":
+          description: Invalid pagination parameters.
+        "404":
+          description: Short code not found.
+        "500":
+          description: Internal server error.
 
   /links/{short_code}/clicks.csv:
     get:
       summary: Export click analytics as CSV
-      description: Streams a CSV file containing detailed click telemetry (timestamps, referrers, user agents) using id-keyset batching.
+      description: Streams a CSV file containing detailed click telemetry (timestamps, referrers, and user agents) using ID-keyset batching.
       parameters:
         - name: short_code
           in: path
@@ -137,7 +152,13 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: CSV file download stream
-        '404':
-          description: Short code not found
+        "200":
+          description: CSV file download stream.
+          content:
+            text/csv:
+              schema:
+                type: string
+        "404":
+          description: Short code not found.
+        "500":
+          description: Internal server error.

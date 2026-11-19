@@ -45,6 +45,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create test environment file
+        run: |
+          echo "NODE_ENV=test" >> .env.test
+          echo "DATABASE_URL_TEST=postgresql://url_app_user:ci_test_password@localhost:5432/url_shortener_test" >> .env.test
+
       - name: Check formatting
         run: npm run format:check
 

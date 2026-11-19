@@ -48,6 +48,69 @@ test("GET /:short_code redirection and telemetry test suite", async (t) => {
     );
   });
 
+  await t.test(
+    "Should accurately record 10 concurrent redirects in click_count and click_log",
+    async () => {
+      const before = await pool.query(
+        `SELECT
+         l.id,
+         l.click_count,
+         (
+           SELECT COUNT(*)
+           FROM click_log c
+           WHERE c.link_id = l.id
+         ) AS log_count
+       FROM links l
+       WHERE l.short_code = $1`,
+        [generatedShortCode],
+      );
+
+      assert.strictEqual(before.rowCount, 1);
+
+      const initialClickCount = Number(before.rows[0].click_count);
+      const initialLogCount = Number(before.rows[0].log_count);
+
+      const concurrentRequests = 10;
+
+      const responses = await Promise.all(
+        Array.from({ length: concurrentRequests }, () =>
+          request(app).get(`/${generatedShortCode}`).redirects(0),
+        ),
+      );
+
+      // Every concurrent request must redirect successfully.
+      for (const response of responses) {
+        assert.strictEqual(response.statusCode, 302);
+        assert.strictEqual(response.headers.location, testUrl);
+      }
+
+      const after = await pool.query(
+        `SELECT
+         l.click_count,
+         (
+           SELECT COUNT(*)
+           FROM click_log c
+           WHERE c.link_id = l.id
+         ) AS log_count
+       FROM links l
+       WHERE l.short_code = $1`,
+        [generatedShortCode],
+      );
+
+      assert.strictEqual(
+        Number(after.rows[0].click_count) - initialClickCount,
+        concurrentRequests,
+        "All 10 redirects must increment click_count",
+      );
+
+      assert.strictEqual(
+        Number(after.rows[0].log_count) - initialLogCount,
+        concurrentRequests,
+        "All 10 redirects must create click_log records",
+      );
+    },
+  );
+
   // Test expired link behavior.
   await t.test(
     "Should return 410 Gone when a short link has expired",

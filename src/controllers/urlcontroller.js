@@ -84,9 +84,10 @@ export const url_generator = {
 
   // 2. Atomic Redirection & Telemetry (GET /:short_code)
   url_redirection: async (req, res) => {
-    const client = await pool.connect();
+    let client;
 
     try {
+      client = await pool.connect();
       const { short_code } = req.params;
 
       await client.query("BEGIN");
@@ -117,7 +118,10 @@ export const url_generator = {
         });
       }
 
-      if (result.expires_at && new Date() > new Date(result.expires_at)) {
+      if (
+        result.expires_at &&
+        Date.now() >= new Date(result.expires_at).getTime()
+      ) {
         await client.query("ROLLBACK");
         return res.status(410).json({
           status: "failed",
@@ -147,15 +151,25 @@ export const url_generator = {
 
       return res.redirect(302, result.target_url);
     } catch (err) {
-      await client.query("ROLLBACK");
+      if (client) {
+        try {
+          await client.query("ROLLBACK");
+        } catch (rollbackError) {
+          logger.error(`Rollback error: ${rollbackError.message}`);
+        }
+      }
+
       logger.error(`Error: ${err.message}, stacks: ${err.stack}`);
+
       return res.status(500).json({
         status: "failed",
         success: false,
         message: "An error occurred during redirection",
       });
     } finally {
-      client.release();
+      if (client) {
+        client.release();
+      }
     }
   },
 };
@@ -165,14 +179,18 @@ export const getAnalitics = {
   get_clicks: async (req, res) => {
     try {
       const { short_code } = req.params;
-      const limit_val = parseInt(req.query.limit, 10) || 50;
-      const after_val = req.query.after ? parseInt(req.query.after, 10) : null;
+
+      const raw_limit = req.query.limit;
+      const raw_after = req.query.after;
+      const limit_val = raw_limit === undefined ? 50 : Number(raw_limit);
+      const after_val = raw_after === undefined ? null : Number(raw_after);
 
       if (
-        isNaN(limit_val) ||
+        !Number.isSafeInteger(limit_val) ||
         limit_val < 1 ||
         limit_val > 100 ||
-        (after_val !== null && (isNaN(after_val) || after_val < 0))
+        (after_val !== null &&
+          (!Number.isSafeInteger(after_val) || after_val < 0))
       ) {
         return res.status(400).json({
           status: "failed",
@@ -194,22 +212,26 @@ export const getAnalitics = {
 
       const link_id = links_result.rows[0].id;
 
-      let query_select = `SELECT id, clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1`;
+      let query_select = ` SELECT id, clicked_at, referrer, user_agent FROM click_log WHERE link_id = $1
+`;
+
       const params_query = [link_id];
 
       if (after_val !== null) {
         query_select += ` AND id < $2`;
         params_query.push(after_val);
-        query_select += ` ORDER BY id DESC LIMIT $3`;
-        params_query.push(limit_val);
-      } else {
-        query_select += ` ORDER BY id DESC LIMIT $2`;
-        params_query.push(limit_val);
       }
 
+      query_select += ` ORDER BY id DESC LIMIT $${params_query.length + 1}`;
+      params_query.push(limit_val + 1);
+
       const click_result = await pool.query(query_select, params_query);
-      const data = click_result.rows;
-      const next_cursor = data.length > 0 ? data[data.length - 1].id : null;
+
+      const has_more = click_result.rows.length > limit_val;
+
+      const data = click_result.rows.slice(0, limit_val);
+
+      const next_cursor = has_more ? data[data.length - 1].id : null;
 
       return res.status(200).json({
         status: "success",
@@ -219,7 +241,7 @@ export const getAnalitics = {
           limit: limit_val,
           after: after_val,
           next_cursor: next_cursor,
-          has_more: data.length === limit_val,
+          has_more: has_more,
         },
       });
     } catch (err) {

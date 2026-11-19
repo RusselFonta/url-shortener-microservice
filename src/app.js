@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import urlroute from "./routes/urlroute.js";
 import logger from "./config/logger.js";
 import error_handle from "./controllers/error-handler.js";
@@ -9,9 +11,10 @@ import { pool } from "./config/db.js";
 
 const app = express();
 
-// Security Middleware
-app.use(cors());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
+app.use(cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -19,15 +22,18 @@ app.use((req, res, next) => {
   next();
 });
 
-const swaggerDocument = YAML.load("./swagger.yaml");
+// Load Swagger documentation using an absolute path
+const swaggerDocument = YAML.load(resolve(__dirname, "../swagger.yaml"));
 
-// Serve Swagger UI at /api-docs
+// Serve Swagger UI at both routes
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// Health check route (Added 'async' so 'await' works correctly)
+// Health check endpoint
 app.get("/health", async (req, res) => {
   try {
     logger.info("Health check endpoint accessed");
+
     await pool.query("SELECT 1");
 
     return res.status(200).json({
@@ -37,6 +43,7 @@ app.get("/health", async (req, res) => {
     });
   } catch (err) {
     logger.error(`Health check failed: ${err.message}`);
+
     return res.status(503).json({
       status: "failed",
       success: false,
@@ -45,7 +52,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
-// Mounting url-route
+// Mount URL routes
 app.use("/", urlroute);
 
 app.use(error_handle);

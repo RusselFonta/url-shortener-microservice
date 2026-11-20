@@ -10,6 +10,7 @@
     "format:check": "prettier --check \"src/**/*.js\"",
     "format": "prettier --write \"src/**/*.js\"",
     "db:init": "node init-db.js",
+    "db:seed": "node seed-db.js",
     "test": "node --env-file=.env.test init-db.js && node --env-file=.env.test --test"
   },
   "keywords": [],

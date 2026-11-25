@@ -13,3 +13,14 @@ This project provides a service for shortening URLs, managing links, and monitor
 
 ---
 
+## 🎯 Project Goals
+
+- Create short URLs using custom or generated codes.
+- Redirect visitors to original URLs.
+- Track clicks and visitor information.
+- Provide click history and analytics.
+- Export click records as CSV.
+- Support link expiration and deletion.
+
+---
+

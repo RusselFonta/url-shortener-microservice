@@ -102,7 +102,7 @@ npm run db:init
 ### 6. Start the application
 
 ```bash
-npm start
+npm run dev
 ```
 
 ### 7. Run tests

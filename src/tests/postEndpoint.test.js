@@ -42,10 +42,12 @@ test("POST /links endpoint comprehensive test suite", async (t) => {
       responses.forEach((res) => {
         assert.strictEqual(res.statusCode, 201);
         assert.match(res.body.data.short_code, regex);
+
         createdShortCodes.push(res.body.data.short_code);
       });
 
       const codes = responses.map((res) => res.body.data.short_code);
+
       const uniqueCodes = new Set(codes);
 
       assert.strictEqual(

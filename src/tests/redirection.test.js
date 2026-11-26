@@ -53,15 +53,15 @@ test("GET /:short_code redirection and telemetry test suite", async (t) => {
     async () => {
       const before = await pool.query(
         `SELECT
-         l.id,
-         l.click_count,
-         (
-           SELECT COUNT(*)
-           FROM click_log c
-           WHERE c.link_id = l.id
-         ) AS log_count
-       FROM links l
-       WHERE l.short_code = $1`,
+          l.id,
+          l.click_count,
+          (
+            SELECT COUNT(*)
+            FROM click_log c
+            WHERE c.link_id = l.id
+          ) AS log_count
+        FROM links l
+        WHERE l.short_code = $1`,
         [generatedShortCode],
       );
 
@@ -78,7 +78,6 @@ test("GET /:short_code redirection and telemetry test suite", async (t) => {
         ),
       );
 
-      // Every concurrent request must redirect successfully.
       for (const response of responses) {
         assert.strictEqual(response.statusCode, 302);
         assert.strictEqual(response.headers.location, testUrl);
@@ -86,14 +85,14 @@ test("GET /:short_code redirection and telemetry test suite", async (t) => {
 
       const after = await pool.query(
         `SELECT
-         l.click_count,
-         (
-           SELECT COUNT(*)
-           FROM click_log c
-           WHERE c.link_id = l.id
-         ) AS log_count
-       FROM links l
-       WHERE l.short_code = $1`,
+          l.click_count,
+          (
+            SELECT COUNT(*)
+            FROM click_log c
+            WHERE c.link_id = l.id
+          ) AS log_count
+        FROM links l
+        WHERE l.short_code = $1`,
         [generatedShortCode],
       );
 
@@ -107,6 +106,55 @@ test("GET /:short_code redirection and telemetry test suite", async (t) => {
         Number(after.rows[0].log_count) - initialLogCount,
         concurrentRequests,
         "All 10 redirects must create click_log records",
+      );
+    },
+  );
+
+  // Security regression: SQL injection through Referer header.
+  await t.test(
+    "Should safely store an injection shaped Referer header verbatim",
+    async () => {
+      const maliciousReferer =
+        "https://attacker.example/'; DROP TABLE links; --";
+
+      const res = await request(app)
+        .get(`/${generatedShortCode}`)
+        .set("Referer", maliciousReferer)
+        .redirects(0);
+
+      assert.strictEqual(res.statusCode, 302);
+      assert.strictEqual(res.headers.location, testUrl);
+
+      // Verify that the Referer was stored exactly as received.
+      const logRes = await pool.query(
+        `SELECT c.referrer
+         FROM click_log c
+         INNER JOIN links l ON c.link_id = l.id
+         WHERE l.short_code = $1
+         AND c.referrer = $2
+         ORDER BY c.id DESC
+         LIMIT 1`,
+        [generatedShortCode, maliciousReferer],
+      );
+
+      assert.strictEqual(logRes.rowCount, 1);
+
+      assert.strictEqual(
+        logRes.rows[0].referrer,
+        maliciousReferer,
+        "Referer must be stored verbatim",
+      );
+
+      // Verify that the links table remains intact.
+      const tableRes = await pool.query(
+        "SELECT id FROM links WHERE short_code = $1",
+        [generatedShortCode],
+      );
+
+      assert.strictEqual(
+        tableRes.rowCount,
+        1,
+        "The links table must remain intact",
       );
     },
   );
@@ -138,6 +186,7 @@ test("GET /:short_code redirection and telemetry test suite", async (t) => {
     },
   );
 
+  // Test non-existent short codes.
   await t.test("Should return 404 for non-existent short codes", async () => {
     const res = await request(app).get("/dont_exist").redirects(0);
 

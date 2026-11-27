@@ -124,6 +124,24 @@ test("GET /links/:short_code/clicks keyset pagination test suite", async (pageTe
     },
   );
 
+  // rejecting invalide pagination parameters
+  await pageTest.test(
+    "Should reject invalid after cursor parameters with 400",
+    async () => {
+      for (const invalidAfter of ["abc", "-1", "9007199254740992"]) {
+        const res = await request(app).get(
+          `/links/${shortCode}/clicks?after=${invalidAfter}`,
+        );
+
+        assert.strictEqual(
+          res.statusCode,
+          400,
+          `After cursor ${invalidAfter} should be rejected`,
+        );
+      }
+    },
+  );
+
   await pageTest.test(
     "Should reject invalid limit parameters with 400",
     async () => {

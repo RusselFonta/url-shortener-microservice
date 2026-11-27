@@ -210,20 +210,19 @@ export const getAnalitics = {
       const { short_code } = req.params;
 
       // Strict pagination input validation
-     
-const pagination_result = pagination_schema.safeParse(req.query);
 
-if (!pagination_result.success) {
-  return res.status(400).json({
-    status: "failed",
-    success: false,
-    message: "Pagination limit must be 1-100 and after must be >= 0",
-  });
-}
+      const pagination_result = pagination_schema.safeParse(req.query);
 
-const limit_val = pagination_result.data.limit ?? 50;
-const after_val = pagination_result.data.after ?? null;
+      if (!pagination_result.success) {
+        return res.status(400).json({
+          status: "failed",
+          success: false,
+          message: "Pagination limit must be 1-100 and after must be >= 0",
+        });
+      }
 
+      const limit_val = pagination_result.data.limit ?? 50;
+      const after_val = pagination_result.data.after ?? null;
 
       const links_query = `
         SELECT id

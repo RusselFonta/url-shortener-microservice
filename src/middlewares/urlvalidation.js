@@ -27,7 +27,6 @@ const url_shortener_schema = z.object({
       message: "The short code must contain 3 to 16 valid characters",
     })
     .optional(),
-
 });
 
 // Middleware factory.
@@ -53,7 +52,7 @@ const validation_middleware = (schema) => {
   };
 };
 
-// 
+//
 
 export const pagination_schema = z.object({
   limit: z
@@ -63,14 +62,9 @@ export const pagination_schema = z.object({
     })
     .transform(Number)
     .pipe(
-      z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .refine(Number.isSafeInteger, {
-          message: "Limit must be a safe integer",
-        }),
+      z.number().int().min(1).max(100).refine(Number.isSafeInteger, {
+        message: "Limit must be a safe integer",
+      }),
     )
     .optional(),
 
@@ -81,16 +75,11 @@ export const pagination_schema = z.object({
     })
     .transform(Number)
     .pipe(
-      z
-        .number()
-        .int()
-        .nonnegative()
-        .refine(Number.isSafeInteger, {
-          message: "After must be a safe integer",
-        }),
+      z.number().int().nonnegative().refine(Number.isSafeInteger, {
+        message: "After must be a safe integer",
+      }),
     )
     .optional(),
 });
-
 
 export const validation_schema = validation_middleware(url_shortener_schema);

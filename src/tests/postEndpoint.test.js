@@ -115,6 +115,26 @@ test("POST /links endpoint comprehensive test suite", async (t) => {
     createdShortCodes.push(res.body.data.short_code);
   });
 
+  //test for json format
+    await t.test(
+    "Should return a error for malformed JSON (400)",
+    async () => {
+      const res = await request(app)
+        .post("/links")
+        .set("Content-Type", "application/json")
+        .send('{"target_url":');
+
+      assert.strictEqual(res.statusCode, 400);
+      assert.strictEqual(res.body.status, "failed");
+      assert.strictEqual(res.body.message, "Invalid JSON format");
+
+      assert.ok(
+        !res.body.message.includes("Unexpected end of JSON input"),
+        "Raw JSON parser errors should not be exposed",
+      );
+    },
+  );
+
   await t.test("Should reject a past expires_at date (400)", async () => {
     const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 

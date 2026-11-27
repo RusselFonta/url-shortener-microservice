@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { pool } from "../config/db.js";
 import { Transform } from "node:stream";
 import logger from "../config/logger.js";
+import { pagination_schema } from "../middlewares/urlvalidation.js";
 
 const RESERVED_CODES = new Set(["links", "docs", "api-docs", "health"]);
 
@@ -209,39 +210,20 @@ export const getAnalitics = {
       const { short_code } = req.params;
 
       // Strict pagination input validation
-      const raw_limit = req.query.limit;
-      const raw_after = req.query.after;
+     
+const pagination_result = pagination_schema.safeParse(req.query);
 
-      const isIntegerString = (value) =>
-        typeof value === "string" && /^\d+$/.test(value);
+if (!pagination_result.success) {
+  return res.status(400).json({
+    status: "failed",
+    success: false,
+    message: "Pagination limit must be 1-100 and after must be >= 0",
+  });
+}
 
-      const limit_val =
-        raw_limit === undefined
-          ? 50
-          : isIntegerString(raw_limit)
-            ? Number(raw_limit)
-            : NaN;
+const limit_val = pagination_result.data.limit ?? 50;
+const after_val = pagination_result.data.after ?? null;
 
-      const after_val =
-        raw_after === undefined
-          ? null
-          : isIntegerString(raw_after)
-            ? Number(raw_after)
-            : NaN;
-
-      if (
-        !Number.isSafeInteger(limit_val) ||
-        limit_val < 1 ||
-        limit_val > 100 ||
-        (after_val !== null &&
-          (!Number.isSafeInteger(after_val) || after_val < 0))
-      ) {
-        return res.status(400).json({
-          status: "failed",
-          success: false,
-          message: "Pagination limit must be 1-100 and after must be >= 0",
-        });
-      }
 
       const links_query = `
         SELECT id

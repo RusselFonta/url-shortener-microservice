@@ -58,6 +58,43 @@ test("POST /links endpoint comprehensive test suite", async (t) => {
     },
   );
 
+  await t.test(
+    "Should return 409 when a custom short_code already exists",
+    async () => {
+      const customCode = `dup${Date.now()}`;
+
+      // First request: create the link successfully.
+      const firstRes = await request(app).post("/links").send({
+        target_url: "https://github.com",
+        code: customCode,
+      });
+
+      assert.strictEqual(firstRes.statusCode, 201);
+      assert.strictEqual(firstRes.body.data.short_code, customCode);
+
+      createdShortCodes.push(customCode);
+
+      // Second request: reuse the same short code.
+
+      const secondRes = await request(app).post("/links").send({
+        target_url: "https://google.com",
+        code: customCode,
+      });
+
+      assert.strictEqual(secondRes.statusCode, 409);
+      assert.strictEqual(secondRes.body.success, false);
+
+      // Verify that the original link remains unchanged.
+      const storedLink = await pool.query(
+        "SELECT target_url, short_code FROM links WHERE short_code = $1",
+        [customCode],
+      );
+
+      assert.strictEqual(storedLink.rowCount, 1);
+      assert.strictEqual(storedLink.rows[0].target_url, "https://github.com");
+    },
+  );
+
   await t.test("Should accept a future expires_at date (201)", async () => {
     const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 

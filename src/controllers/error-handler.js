@@ -1,7 +1,9 @@
 import logger from "../config/logger.js";
 
 const error_handle = (err, req, res, _next) => {
-  const status_code = err.statusCode || 500;
+  const status_code = err.statusCode || err.status || 500;
+
+  const invalid_json = err.type === "entity.parse.failed";
 
   logger.error({
     message: err.message,
@@ -11,10 +13,13 @@ const error_handle = (err, req, res, _next) => {
     method: req.method,
   });
 
-  return res.status(status_code).json({
+  return res.status(invalid_json ? 400 : status_code).json({
     status: "failed",
-    message:
-      status_code === 500 ? "An internal server error occurred" : err.message,
+    message: invalid_json
+      ? "Invalid JSON format"
+      : status_code === 500
+        ? "An internal server error occurred"
+        : err.message,
   });
 };
 
